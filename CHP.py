@@ -12,9 +12,9 @@ molar_o = 16            #g/mol
 molar_ch4 = molar_c + 4 * molar_h       #g/mol
 molar_co2 = molar_c + 2 * molar_o       #g/mol
 molar_ratio_co2_ch4 = molar_co2 / molar_ch4
-def energy_produced(eff_methane):       #in MW
-    heat = eff_methane * tvm /s_in_y * efficiency_heat
-    electricity = eff_methane * tvm / s_in_y *efficiency_el
+def energy_produced(eff_methane):       #in kW
+    heat = eff_methane * tvm /s_in_y * efficiency_heat * 1000
+    electricity = eff_methane * tvm / s_in_y *efficiency_el * 1000
     return heat, electricity
 
 def co2_release(co2, ch4):              #input in m3 output in kg

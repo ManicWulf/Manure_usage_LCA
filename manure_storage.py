@@ -101,6 +101,10 @@ def ch4_volume_to_mass(methane_volume):     #input methane in m3 output methane 
     return methane_volume * rho_methane
 
 
+def ch4_mass_to_volume(methane_mass):
+    return methane_mass / rho_methane
+
+
 def ch4_to_c(methane):                      #input methane in kg CH4 output in kg C
     return methane * molar_ratio_ch4_c
 

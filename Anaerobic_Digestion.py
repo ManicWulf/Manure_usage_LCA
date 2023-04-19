@@ -52,9 +52,9 @@ def methane_loss(methane_yield):
     return methane_yield * ch4_loss
 
 #heat demand to heat up the manure to operating temperature, assuming it's mostly water and therefore using heat capacity of water, input manure amount in kg per year, return average energy consumption in [kW].
-def heat_demand(manure_tot):
+def heat_demand(manure_tot):#input in t or m3 respectively (assumption of density of 1 t/m3)
     t_0 = 10     #starting temperature in °C
     t_1 = 37    #end temperature in °C for mesophilic AD
     C = 4184    #specific heat capacity of Water in [J/kg/K]
-    return C * (t_1 - t_0) * manure_tot / s_in_y / 1000             #in kW
+    return C * (t_1 - t_0) * manure_tot / s_in_y             #in kW
 
