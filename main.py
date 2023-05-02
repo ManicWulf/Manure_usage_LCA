@@ -1,24 +1,30 @@
-import Animal_Class as AC
-import Anaerobic_Digestion as AD
-import CHP
-import manure_storage as ms
-import Environmental_impact as env
 from prettytable import PrettyTable
+import plotly.graph_objs as go
+
+import Anaerobic_Digestion as AD
+import Animal_Class as AC
+import CHP
+import Environmental_impact as env
+import manure_storage as ms
 
 
 # define function for user input
 
 
 def get_user_input(class_name):
-    num_animals_f = int(input(f"How many {class_name} do you have?"))
-    if num_animals_f != 0:
-        days_outside_f = int(input("How many days of the year are they outside of the stable on average?"))
-        hours_outside_f = float(input("On the days they are outside the stable, how many hours on average are they out?"))
-        manure_type_f = int(input("What kind of manure do you collect? 0: only liquid. 1: liquid and solid. 2: only solid."))
-    else:
-        days_outside_f = 0
-        hours_outside_f = 0
-        manure_type_f = 0
+    try:
+        num_animals_f = int(input(f"How many {class_name} do you have?") or 0)
+        if num_animals_f != 0:
+            days_outside_f = int(input("How many days of the year are they outside of the stable on average?"))
+            hours_outside_f = float(input("On the days they are outside the stable, how many hours on average are they out?"))
+            manure_type_f = int(input("What kind of manure do you collect? 0: only liquid. 1: liquid and solid. 2: only solid."))
+        else:
+            days_outside_f = 0
+            hours_outside_f = 0
+            manure_type_f = 0
+    except ValueError:
+        print("Invalid input. Please enter a valid integer value.")
+        return get_user_input(class_name)
     return num_animals_f, days_outside_f, hours_outside_f, manure_type_f
 
 
@@ -177,12 +183,15 @@ print("N-tot pre storage:", n_tot_pre_storage)
 #methane lost during anaerobic digestion
 effective_methane_AD = AD.methane_yield(effective_methane_pre_storage)             #in m3 per year
 methane_loss = AD.methane_loss(effective_methane_AD)                 #m3 per year
+co2_methane_loss = env.co2_methane(ms.ch4_volume_to_mass(methane_loss))                        #kg CO2
+co2_methane_pre_storage = env.co2_methane(ch4_pre_storage)                                      #kg CO2
 
 c_tot_digestate_AD = c_tot_pre_storage - ms.c_total(effective_methane_AD)  #in kg C
 
 effective_methane_post_loss_AD = effective_methane_AD - methane_loss                                 #m3 per year
 
 ch4_post_storage = ms.ch4_release_AD(c_tot_digestate_AD, post_storage)  #how much ch4 is released during the storage of the digestate [kg/year]
+co2_methane_post_storage = env.co2_methane(ch4_post_storage)
 
 ch4_released_AD = ch4_pre_storage + ch4_post_storage + ms.ch4_volume_to_mass(methane_loss)       #kg CH4
 
@@ -201,6 +210,10 @@ n2o_field_AD = ms.n_to_n2o(n2o_field_AD)        #in kg N2O
 n_fertilizer_AD = n_acc_ad - n_lost_post_storage_AD
 p_fertilizer_AD = p_tot
 k_fertilizer_AD = k_tot
+
+co2_n2o_pre_storage = env.co2_n2o(n2o_released_pre_storage)
+co2_n2o_post_storage = env.co2_n2o(n2o_post_storage_AD)
+co2_n2o_field = env.co2_n2o(n2o_field_AD)
 
 print("N lost post storage AD:", n_lost_post_storage_AD)
 print("ch4 released AD post storage:", ch4_post_storage)
@@ -301,8 +314,80 @@ table_env.add_row(["NH3 emitted [kg NH3]", nh3_tot_AD, nh3_tot_untreated])
 table_env.add_row(["N2O emitted [kg N2O]", n2o_tot_AD, n2o_tot_untreated])
 table_env.add_row(["CH4 emitted [kg CH4]", ch4_AD, ch4_untreated])
 table_env.add_row(["CO2 equivalent total [kg CO2]", co2_eq_AD, co2_eq_untreated])
-table_env.add_row(["CO2 from transport (already accounted for in CO2 total) [kg CO2]", co2_transport_tot, 0])
 table_env.add_row(["CO2 eq. from replaced mineral fertilizer [kg CO2]", co2_eq_mineral_fertilizer_AD, co2_eq_mineral_fertilizer_untreated])
 
 # print the table
 print(table_env)
+
+
+##########################
+#plots using plotly
+########################
+
+#create pie chart of CO2 eq. emissions for AD
+
+
+#round the relevant data points to 2 digits
+
+co2_n2o_ad = round(env.co2_n2o(n2o_tot_AD), 2)
+co2_methane_ad = round(env.co2_methane(ch4_released_AD), 2)
+co2_chp_AD = round(co2_chp_AD, 2)
+co2_transport_tot = round(co2_transport_tot, 2)
+
+# create a list of values for the pie chart
+values_pie_co2_ad = [co2_n2o_ad, co2_methane_ad, co2_chp_AD, co2_transport_tot]
+
+
+# create a list of labels for the pie chart
+labels_pie_co2_ad = ["N2O", "CH4", "CHP generator", "Transport"]
+
+# create a list of sources for N2O and CH4
+n2o_sources_labels = ["Pre storage", "AD process", "Post storage", "Field application"]
+ch4_sources_labels = ["Pre storage", "AD process", "Post storage", "Field application"]
+
+# create a list of source data for n2o and ch4 sources
+
+data_n2o_sources = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+data_ch4_sources = [round(co2_methane_pre_storage, 2), round(co2_methane_loss, 2), round(co2_methane_post_storage, 2), 0]
+
+
+#create a hovertemplate for the pie chart
+hovertemplate_pie_co2_ad = (
+    "<b>%{label}</b><br>" +
+    "Value: %{value} kg CO2 eq.<br>" +
+    "%{percent}% of total<br><br>" +
+    "<b>Sources:</b><br>" +
+    f"{'<br>'.join(n2o_sources_labels)}: %{data_n2o_sources}<br>" +
+    f"{'<br>'.join(ch4_sources_labels)}: %{data_ch4_sources}"
+)
+
+#create pie chart
+pie_co2_ad = go.Figure(
+    data=[go.Pie(
+        labels=labels_pie_co2_ad,
+        values=values_pie_co2_ad,
+        hovertemplate=hovertemplate_pie_co2_ad
+    )]
+)
+
+# set title
+
+pie_co2_ad.update_layout(title_text="Contributors to GHG emissions of the Anaerobic Digestion in [kg CO2 eq.]")
+
+# plot
+pie_co2_ad.show()
+
+
+# create the sunburst chart
+sunburst_fig = go.Figure(go.Sunburst(
+    labels=labels_pie_co2_ad + n2o_sources_labels + ch4_sources_labels,
+    parents=[""] * len(labels_pie_co2_ad) + labels_pie_co2_ad[0:1] * len(n2o_sources_labels) + labels_pie_co2_ad[1:2] * len(ch4_sources_labels),
+    values=values_pie_co2_ad + data_n2o_sources + data_ch4_sources,
+    maxdepth=2,
+))
+
+# set title
+sunburst_fig.update_layout(title_text="GHG Emissions from Anaerobic Digestion (in kg CO2 eq.)")
+
+# show the figure
+sunburst_fig.show()
