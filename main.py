@@ -1,5 +1,10 @@
 from prettytable import PrettyTable
 import plotly.graph_objs as go
+import pandas as pd
+import plotly.express as px
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output
 
 import Anaerobic_Digestion as AD
 import Animal_Class as AC
@@ -58,10 +63,49 @@ co2_transport_tot = 0
 
 animal_classes = ["Milchkuh", "Mutterkuh", "Aufzuchtrind", "Mastkalb", "Mutterkuhkalb", "RiendviehMast", "Zuchtstier", "Mastschwein", "Zuchtschweineplatz", "Legehenne", "Junghenne", "Mastpoulet"]
 
+
+##########################################
+#dash app
+##########################################
+
+
+
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    dcc.Input(id='num-farms', type='number', placeholder='Enter number of farms'),
+    html.Button('Submit', id='submit-button', n_clicks=0),
+    html.Div(id='farm-inputs')
+])
+
+@app.callback(
+    Output('farm-inputs', 'children'),
+    [Input('submit-button', 'n_clicks')],
+    [dash.dependencies.State('num-farms', 'value')]
+)
+def generate_farm_inputs(n_clicks, num_farms):
+    if n_clicks:
+        return [html.Div([
+            html.H3(f'Farm {i+1}'),
+            dcc.Input(id=f'farm-name-{i+1}', type='text', placeholder=f'Enter farm {i+1} name'),
+            dcc.Input(id=f'distance-{i+1}', type='number', placeholder=f'Enter distance for farm {i+1}'),
+            html.H4('Animal counts'),
+            html.Div([
+                dcc.Input(id=f'{animal_class.lower()}-{i+1}', type='number', placeholder=f'Enter number of {animal_class}', value=0)
+                for animal_class in animal_classes
+            ])
+        ]) for i in range(num_farms)]
+
+
+
+
+
+
 num_farms = int(input("How many farms do you want to calculate for? "))
-farms = {}
+
 
 # Get user input for each farm and store in a nested dictionary
+farms = {}
 for i in range(num_farms):
     farm_name = input(f"Enter name for farm {i + 1}: ")
     distance_from_power_plant = int(input(f"Enter distance from power plant for farm {farm_name} in km: "))
@@ -377,17 +421,29 @@ pie_co2_ad.update_layout(title_text="Contributors to GHG emissions of the Anaero
 # plot
 pie_co2_ad.show()
 
+#plotly express sunburst
+# create a list of labels for the pie chart
+labels_emissions_sb = ["N2O", "N2O", "N2O", "N2O", "CH4", "CH4", "CH4", "CH4", "CHP generator", "Transport"]
 
-# create the sunburst chart
-sunburst_fig = go.Figure(go.Sunburst(
-    labels=labels_pie_co2_ad + n2o_sources_labels + ch4_sources_labels,
-    parents=[""] * len(labels_pie_co2_ad) + labels_pie_co2_ad[0:1] * len(n2o_sources_labels) + labels_pie_co2_ad[1:2] * len(ch4_sources_labels),
-    values=values_pie_co2_ad + data_n2o_sources + data_ch4_sources,
-    maxdepth=2,
+# create a list of sources for N2O and CH4
+labels_sources_sb = ["Pre storage", "AD process", "Post storage", "Field application", "Pre storage", "AD process", "Post storage", "Field application", None, None]
+
+
+# create a list of source data for n2o and ch4 sources
+
+data_process_ad = [co2_chp_AD, co2_transport_tot]
+
+data_sb = pd.DataFrame(dict(
+    emissions=labels_emissions_sb,
+    sources=labels_sources_sb,
+    values=data_n2o_sources + data_ch4_sources + data_process_ad
 ))
 
+# create the sunburst chart
+sunburst_fig_2 = px.sunburst(data_sb, path=["emissions", "sources"], values="values")
+
 # set title
-sunburst_fig.update_layout(title_text="GHG Emissions from Anaerobic Digestion (in kg CO2 eq.)")
+sunburst_fig_2.update_layout(title_text="GHG Emissions from Anaerobic Digestion (in kg CO2 eq.)")
 
 # show the figure
-sunburst_fig.show()
+sunburst_fig_2.show()
