@@ -70,7 +70,7 @@ animal_classes = ["Milchkuh", "Mutterkuh", "Aufzuchtrind", "Mastkalb", "Mutterku
 
 
 
-app = dash.Dash(__name__)
+"""app = dash.Dash(__name__)
 
 app.layout = html.Div([
     dcc.Input(id='num-farms', type='number', placeholder='Enter number of farms'),
@@ -95,7 +95,7 @@ def generate_farm_inputs(n_clicks, num_farms):
                 for animal_class in animal_classes
             ])
         ]) for i in range(num_farms)]
-
+"""
 
 
 

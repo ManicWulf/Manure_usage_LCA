@@ -3,7 +3,7 @@ import plotly.io as pio
 import pandas as pd
 import json
 import dash
-from dash import Dash, dcc, html, Input, Output, State, MATCH, Patch, ALL
+from dash import Dash, dcc, html, Input, Output, State, MATCH, Patch, ALL, dash_table
 from dash.dependencies import Input, Output, State
 
 #dash
@@ -25,7 +25,15 @@ app.layout = html.Div([
     ]),
     dcc.Tabs(id='farm-tabs'),  #create the tabs for the different farms
     dcc.Store(id="farm-data-store"),  #create a dict to store data
-    html.Div(id="data-div")     #element to display and check the dict
+    html.Div(id="data-div"),     #element to display and check the dict
+"""    dash_table.DataTable(id="farm-data-table",
+                         columns=[{
+                             "name": "data/farm"
+                         }],
+                         data=[{
+                             "animal-type", "num_animals", "days_outside", "num_hours", "manure-type"
+                         }],
+                         )"""
 ])
 
 
@@ -76,8 +84,9 @@ def generate_farm_tabs(n_clicks, num_farms):
             html.Br(),
             html.Div(id={"type": 'additional-fields', "index": i+1}),
             dcc.Store(id={"type": 'additional-fields-store', "index": i+1}, data={}),       #generate a dict to store if fields have been added already
-            dcc.Store(id={"type": 'farm-input-store', "index": i + 1}, data={"farm": {}}),  #generate dict to store the input data for each farm tab
+            dcc.Store(id={"type": 'farm-input-store', "index": i + 1}, data={}),  #generate dict to store the input data for each farm tab
             html.Div(id={"type": 'farm_data_output', "index": i + 1}),
+
         ]) for i in range(num_farms)]
 
 
@@ -104,7 +113,48 @@ def update_farm_data(farm_name, farm_index, farm_distance, num_farms):
     return patch_data
 """
 
+
 #generate new input fields in the animal tabs for data input, update the dict to check if the fields have already been added, as well as construct the baseline for the farm_data dict
+def add_input_fields(animal_class):
+    additional_fields = []
+    additional_fields += [(html.Br())]
+    additional_fields += [(html.Label(f"Number of {animal_class}:"))]
+    additional_fields += [(dcc.Input(id=f'num-{animal_class}', type='number', value=0))]
+
+    additional_fields += [(html.Br())]
+    additional_fields += [(html.Label(f"Number of days outside the stable per year:"))]
+    additional_fields += [(dcc.Input(id=f'days-outside-{animal_class}', type='number', value=0))]
+
+    additional_fields += [(html.Br())]
+    additional_fields += [(html.Label(f"Hours per day outside on average on the days outside:"))]
+    additional_fields += [(dcc.Input(id=f'num-hours-{animal_class}', type='number', value=0))]
+
+    additional_fields += [(html.Br())]
+    additional_fields += [(html.Label(f"What type of manure is collected?:"))]
+    additional_fields += [(dcc.Dropdown(options=[
+        {"label": "Only solid", "value": "2"},
+        {"label": "Only liquid", "value": "0"},
+        {"label": "Mixed", "value": "1"}
+    ],
+        id=f'manure-type-{animal_class}', value=1))]
+    return additional_fields
+
+
+def initiate_data_store(animal_class):
+    data = {"farm": {}}
+    data["farm"][f"{animal_class}"] = {}
+
+    data["farm"][f"{animal_class}"]["num_animals"] = 0
+
+    data["farm"][f"{animal_class}"]["num_days"] = 0
+
+    data["farm"][f"{animal_class}"]["num_hours"] = 0
+
+    data["farm"][f"{animal_class}"]["manure_type"] = 0
+
+    return data
+
+
 @app.callback(
     Output({"type": 'animal-tabs-content', "index": MATCH}, 'children'),
     Output({'type': 'additional-fields-store', 'index': MATCH}, 'data'),
@@ -124,33 +174,14 @@ def generate_additional_fields(animal, additional_fields_check, data):
             return dash.no_update
         else:
             additional_fields_check_internal["pigs_fields_added"] = True    #update dict to make sure fields have been added
+
             for pig_class in pigs:
-                data["farm"][f"{pig_class}"] = {}
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Number of {pig_class}:"))
-                additional_fields.append(dcc.Input(id=f"num-{pig_class}", type='number', value=0))
-                data["farm"][f"{pig_class}"]["num_animals"] = 0
+                additional_fields += add_input_fields(pig_class)
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Number of days outside the stable per year:"))
-                additional_fields.append(dcc.Input(id=f'days-outside-{pig_class}', type='number', value=0))
-                data["farm"][f"{pig_class}"]["num_days"] = 0
+                data.update(initiate_data_store(pig_class))
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Hours per day outside on average on the days outside:"))
-                additional_fields.append(dcc.Input(id=f'num-hours-{pig_class}', type='number', value=0))
-                data["farm"][f"{pig_class}"]["num_hours"] = 0
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"What type of manure is collected?:"))
-                additional_fields.append(dcc.Dropdown(options=[
-                        {"label": "Only solid", "value": "2"},
-                        {"label": "Only liquid", "value": "0"},
-                        {"label": "Mixed", "value": "1"}
-                    ],
-                        id=f'manure-type-{pig_class}', value=1))
-                data["farm"][f"{pig_class}"]["manure_type"] = 0
 
     elif animal == "cattle":
         if additional_fields_check.get('cattle_fields_added'):
@@ -160,32 +191,10 @@ def generate_additional_fields(animal, additional_fields_check, data):
             additional_fields_check_internal["cattle_fields_added"] = True
 
             for cattle_class in cattle:
-                data["farm"][f"{cattle_class}"] = {}
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Number of {cattle_class}:"))
-                additional_fields.append(dcc.Input(id=f'num-{cattle_class}', type='number', value=0))
-                data["farm"][f"{cattle_class}"]["num_animals"] = 0
+                additional_fields += add_input_fields(cattle_class)
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Number of days outside the stable per year:"))
-                additional_fields.append(dcc.Input(id=f'days-outside-{cattle_class}', type='number', value=0))
-                data["farm"][f"{cattle_class}"]["num_days"] = 0
-
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Hours per day outside on average on the days outside:"))
-                additional_fields.append(dcc.Input(id=f'num-hours-{cattle_class}', type='number', value=0))
-                data["farm"][f"{cattle_class}"]["num_hours"] = 0
-
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"What type of manure is collected?:"))
-                additional_fields.append(dcc.Dropdown(options=[
-                        {"label": "Only solid", "value": "2"},
-                        {"label": "Only liquid", "value": "0"},
-                        {"label": "Mixed", "value": "1"}
-                    ],
-                        id=f'manure-type-{cattle_class}', value=1))
-                data["farm"][f"{cattle_class}"]["manure_type"] = 0
+                data.update(initiate_data_store(cattle_class))
 
     elif animal == "poultry":
         if additional_fields_check.get('poultry_fields_added'):
@@ -195,31 +204,10 @@ def generate_additional_fields(animal, additional_fields_check, data):
             additional_fields_check_internal["poultry_fields_added"] = True
 
             for poultry_class in poultry:
-                data["farm"][f"{poultry_class}"] = {}
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Number of {poultry_class}:"))
-                additional_fields.append(dcc.Input(id=f'num-{poultry_class}', type='number', value=0))
-                data["farm"][f"{poultry_class}"]["num_animals"] = 0
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Number of days outside the stable per year:"))
-                additional_fields.append(dcc.Input(id=f'days-outside-{poultry_class}', type='number', value=0))
-                data["farm"][f"{poultry_class}"]["num_days"] = 0
+                additional_fields += add_input_fields(poultry_class)
 
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"Hours per day outside on average on the days outside:"))
-                additional_fields.append(dcc.Input(id=f'num-hours-{poultry_class}', type='number', value=0))
-                data["farm"][f"{poultry_class}"]["num_hours"] = 0
-
-                additional_fields.append(html.Br())
-                additional_fields.append(html.Label(f"What type of manure is collected?:"))
-                additional_fields.append(dcc.Dropdown(options=[
-                        {"label": "Only solid", "value": "2"},
-                        {"label": "Only liquid", "value": "0"},
-                        {"label": "Mixed", "value": "1"}
-                    ],
-                        id=f'manure-type-{poultry_class}', value=1))
-                data["farm"][f"{poultry_class}"]["manure_type"] = 0
+                data.update(initiate_data_store(poultry_class))
 
     return [additional_fields, additional_fields_check_internal, data]
 
