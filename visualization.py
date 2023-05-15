@@ -17,11 +17,31 @@ pigs = ["Mastschwein", "Zuchtschweineplatz"]
 poultry = ["Legehenne", "Junghenne", "Mastpoulet"]
 
 
+input - button value
+def create_accordion(n):
+    accordion = []
+    for i in range(n):
+        new_item = create_accordion_item(i)
+        accordion += new_item
+    return accordion
+
+
+def create_accordion_item(i):
+    item = html.Div(item_content, id=f"{i}")
+    return item
+
+
+
+
 app.layout = html.Div([
     html.H3([
         "Enter the number of farms.",
         dcc.Input(id='num-farms', type='number', value=1),
         html.Button('Submit', id='submit-button', n_clicks=0),
+        html.Br(),
+        "How many days is the manure or digestate fertilizer stored before field application?",
+        html.Br(),
+        dcc.Input(id='fertilizer-storage-duration', type='number', value=100),
     ]),
     dcc.Tabs(id='farm-tabs'),  #create the tabs for the different farms
     dcc.Store(id="farm-data-store"),  #create a dict to store data
@@ -67,8 +87,10 @@ def generate_farm_tabs(n_clicks, num_farms):
             html.Div([
                 f"Farm {i+1} Name: ",
                 dcc.Input(id={"type": 'farm-name', "index": i+1}, type='text', value=i+1),
-                f"Farm {i+1} Distance: ",
+                f"Farm {i+1} Distance from processing site: ",
                 dcc.Input(id={"type": 'farm-distance', "index": i+1}, type='number', value=0),
+                f"Farm {i + 1} manure storage duration before processing: ",
+                dcc.Input(id={"type": 'farm-manure-storage-time', "index": i + 1}, type='number', value=0),
                 html.Br(),
                 html.H3(f"What kinds of animals does farm {i+1} have? Select all that apply"),
                 #create new tabs for Cattle, Pigs and Poultry within the farm tabs
@@ -117,6 +139,9 @@ def update_farm_data(farm_name, farm_index, farm_distance, num_farms):
 #generate new input fields in the animal tabs for data input, update the dict to check if the fields have already been added, as well as construct the baseline for the farm_data dict
 def add_input_fields(animal_class):
     additional_fields = []
+    new_ = [
+
+    ]
     additional_fields += [(html.Br())]
     additional_fields += [(html.Label(f"Number of {animal_class}:"))]
     additional_fields += [(dcc.Input(id=f'num-{animal_class}', type='number', value=0))]
