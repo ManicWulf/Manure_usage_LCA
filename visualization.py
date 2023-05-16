@@ -3,21 +3,30 @@ import plotly.io as pio
 import pandas as pd
 import json
 import dash
+import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, MATCH, Patch, ALL, dash_table
 from dash.dependencies import Input, Output, State
 
 #dash
 
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.MATERIA])
 
 animal_classes = ["Milchkuh", "Mutterkuh", "Aufzuchtrind", "Mastkalb", "Mutterkuhkalb", "RiendviehMast", "Zuchtstier", "Mastschwein", "Zuchtschweineplatz", "Legehenne", "Junghenne", "Mastpoulet"]
 cattle = ["Milchkuh", "Mutterkuh", "Aufzuchtrind", "Mastkalb", "Mutterkuhkalb", "RiendviehMast", "Zuchtstier"]
 pigs = ["Mastschwein", "Zuchtschweineplatz"]
 poultry = ["Legehenne", "Junghenne", "Mastpoulet"]
+dataframe_columns = ["name", "num-animals", "days-outside", "hours-outside", "manure-type"]
 
 
-input - button value
+def create_data_frame(animal):
+    df_table = pd.DataFrame(columns=dataframe_columns)
+    df_table["name"] = animal
+    df_table["manure-type"] = 1
+    df_table = df_table.fillna(0)
+    return df_table
+
+
 def create_accordion(n):
     accordion = []
     for i in range(n):
@@ -27,10 +36,57 @@ def create_accordion(n):
 
 
 def create_accordion_item(i):
-    item = html.Div(item_content, id=f"{i}")
+    data_table = []
+    data_table += generate_data_table(i, "cattle", cattle)
+    data_table += generate_data_table(i, "pigs", pigs)
+    data_table += generate_data_table(i, "poultry", poultry)
+
+    item = [dbc.AccordionItem(
+        children=[dbc.Container([
+            dbc.Row([
+                dbc.Col([
+                    "How many days is the manure stored before processing?",
+                    dcc.Input(id={"type": 'days-stored-initial', "index": i+1}, type='number', value=0)
+                ]),
+                dbc.Col([
+                    html.Button(f"Store data for farm {i+1}", id={"type": "store-data-button", "index": i+1}, n_clicks=0)
+                ])
+            ]),
+            dbc.Row(
+                data_table
+            )
+        ])],
+        title=f"Farm-{i+1}",
+        item_id=f"farm-accordion-{i+1}"
+    )]
     return item
 
 
+def generate_data_table(k, animals, animals_list):
+    data = create_data_frame(animals_list)
+    data_table = [html.Br(), html.H3(f"{animals}"), dash_table.DataTable(
+
+        data=data.to_dict("records"),
+        columns=[
+            {"name": f"Type of {animals}", "id": "name", "editable": False},
+            {"name": f"Number of animals", "id": "num-animals", "type": "numeric"},
+            {"name": "Avg days outside stable per year", "id": "days-outside", "type": "numeric"},
+            {"name": "Avg hours outside per day", "id": "hours-outside", "type": "numeric"},
+            {"name": "Type of manure collected", "id": "manure-type", "presentation": "dropdown"},
+        ],
+        editable=True,
+        dropdown={
+            "manure-type": {
+                "options": [
+                    {"label": "Only solid", "value": "2"},
+                    {"label": "Only liquid", "value": "0"},
+                    {"label": "Mixed", "value": "1"}
+                ]
+            }
+        },
+        id={"type": f"data-table-{animals}", "index": k+1}
+    )]
+    return data_table
 
 
 app.layout = html.Div([
@@ -38,26 +94,34 @@ app.layout = html.Div([
         "Enter the number of farms.",
         dcc.Input(id='num-farms', type='number', value=1),
         html.Button('Submit', id='submit-button', n_clicks=0),
+        html.Button('Calculate LCA', id='calculate-button', n_clicks=0),
         html.Br(),
         "How many days is the manure or digestate fertilizer stored before field application?",
         html.Br(),
         dcc.Input(id='fertilizer-storage-duration', type='number', value=100),
     ]),
-    dcc.Tabs(id='farm-tabs'),  #create the tabs for the different farms
+    #dcc.Tabs(id='farm-tabs'),  #create the tabs for the different farms
     dcc.Store(id="farm-data-store"),  #create a dict to store data
     html.Div(id="data-div"),     #element to display and check the dict
-"""    dash_table.DataTable(id="farm-data-table",
-                         columns=[{
-                             "name": "data/farm"
-                         }],
-                         data=[{
-                             "animal-type", "num_animals", "days_outside", "num_hours", "manure-type"
-                         }],
-                         )"""
+    dbc.Accordion(id="farm-accordion")
 ])
 
 
 #add farm number into the dict and initiate more keys, one for each farm
+
+
+@app.callback(
+    Output("farm-accordion", "children"),
+    Input('submit-button', 'n_clicks'),
+    State('num-farms', 'value'),
+)
+def generate_accordion(n_clicks, num_farms):
+    if n_clicks:
+        accordion_items = create_accordion(num_farms)
+        return accordion_items
+
+
+
 @app.callback(
  Output('farm-data-store', 'data'),
  Input('submit-button', 'n_clicks'),
@@ -75,7 +139,7 @@ def update_farm_data_store(n_clicks, num_farms, data):
 
 
 #generate the tabs for each farm with the additional animal sub tabs
-@app.callback(
+"""@app.callback(
     Output('farm-tabs', 'children'),
     [Input('submit-button', 'n_clicks')],
     [State('num-farms', 'value')],
@@ -110,7 +174,7 @@ def generate_farm_tabs(n_clicks, num_farms):
             html.Div(id={"type": 'farm_data_output', "index": i + 1}),
 
         ]) for i in range(num_farms)]
-
+"""
 
 
 
@@ -137,7 +201,7 @@ def update_farm_data(farm_name, farm_index, farm_distance, num_farms):
 
 
 #generate new input fields in the animal tabs for data input, update the dict to check if the fields have already been added, as well as construct the baseline for the farm_data dict
-def add_input_fields(animal_class):
+"""def add_input_fields(animal_class):
     additional_fields = []
     new_ = [
 
@@ -163,8 +227,8 @@ def add_input_fields(animal_class):
     ],
         id=f'manure-type-{animal_class}', value=1))]
     return additional_fields
-
-
+"""
+"""
 def initiate_data_store(animal_class):
     data = {"farm": {}}
     data["farm"][f"{animal_class}"] = {}
@@ -236,8 +300,9 @@ def generate_additional_fields(animal, additional_fields_check, data):
 
     return [additional_fields, additional_fields_check_internal, data]
 
-
+"""
 #update the data dicts for each farm tab to store input data
+"""
 @app.callback(
     Output({'type': 'farm-input-store', 'index': MATCH}, 'data', allow_duplicate=True),
     Input({"type": 'animal-tab', "index": MATCH}, 'value'),
@@ -270,7 +335,7 @@ def update_farm_animal_input(animal, animal_tab, data, num_animals, days_outside
             patch_data["farm"][f"{animal_class}"]["manure_type"] = manure_type
 
     return patch_data
-
+"""
 
 
 
@@ -425,14 +490,14 @@ def update_farm_data(num_animal, days_outside, num_hours, manure_type, data, far
 
 
 #display the farm_input dict to check if it's working
-@app.callback(
+"""@app.callback(
     Output('data-div', 'children'),
     Input({"type": 'farm-input-store', "index": ALL}, 'data')
     )
 def display_data(data):
     return json.dumps(data, indent=2)
 
-
+"""
 
 
 
