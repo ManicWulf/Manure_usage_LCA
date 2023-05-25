@@ -274,8 +274,23 @@ net_electricity_ad = electricity_chp_AD - electricity_demand_ad
 co2_chp_AD = CHP.co2_release(co2_bg_AD, effective_methane_post_loss_AD)   #CO2 released after burning of the biogas in CHP
 
 co2_eq_mineral_fertilizer_AD = env.co2_mineral_nitrate(n_fertilizer_AD) + env.co2_mineral_k(k_fertilizer_AD) + env.co2_mineral_P(p_fertilizer_AD)
-co2_eq_AD = env.co2_n2o(n2o_tot_AD) + env.co2_methane(ch4_released_AD) + co2_chp_AD + co2_transport_tot
+co2_eq_AD = env.co2_n2o(n2o_tot_AD) + env.co2_methane(ch4_released_AD) + co2_transport_tot
 
+so2_eq_nh3_ad = env.acidification_nh3(nh3_tot_AD)
+
+
+
+#UBP
+n_eutrophication_ad = n_tot - n_acc_ad - n_lost_post_storage_AD
+
+ubp_nh3_emission_ad = env.ubp_nh3(nh3_tot_AD)
+ubp_co2_emission_ad = env.ubp_co2_eq(co2_eq_AD)
+ubp_n_eutrophication_ad = env.ubp_eutrophication_n(n_eutrophication_ad)
+
+energy_renew_ad = (electricity_chp_AD + heat_chp_AD) * 3.6      #total energy produced in MJ oil eq.
+ubp_energy_renew_ad = env.ubp_energy_renew(energy_renew_ad)
+
+ubp_ad = ubp_nh3_emission_ad + ubp_co2_emission_ad + ubp_n_eutrophication_ad + ubp_energy_renew_ad
 
 #######################################################################################################################
 #no treatment, just storage of manure and application on field
@@ -303,13 +318,23 @@ co2_eq_mineral_fertilizer_untreated = env.co2_mineral_nitrate(n_fertilizer_untre
 
 co2_eq_untreated = env.co2_n2o(n2o_tot_untreated) + env.co2_methane(ch4_untreated)
 
+so2_eq_nh3_untreated = env.acidification_nh3(nh3_tot_untreated)
+
 print("N lost storage untreated:", n_lost_untreated)
 print("N2O released untreated storage:", n2o_untreated)
 print("N2O released untreated field:", n2o_untreated_field)
 
 
+#UBP
+n_eutrophication_untreated = n_tot - n_acc_untreated - n_lost_untreated
 
+ubp_nh3_emission_untreated = env.ubp_nh3(nh3_tot_untreated)
+ubp_co2_emission_untreated = env.ubp_co2_eq(co2_eq_untreated)
+ubp_n_eutrophication_untreated = env.ubp_eutrophication_n(n_eutrophication_untreated)
 
+ubp_energy_non_renew_untreated = env.ubp_energy_non_renew(energy_renew_ad)
+
+ubp_untreated = ubp_co2_emission_untreated + ubp_nh3_emission_untreated + ubp_n_eutrophication_untreated + ubp_energy_non_renew_untreated
 
 
 
@@ -343,22 +368,34 @@ k_fertilizer_untreated = round(k_fertilizer_untreated, 2)
 co2_eq_mineral_fertilizer_untreated = round(co2_eq_mineral_fertilizer_untreated, 2) * -1
 co2_transport_tot = round(co2_transport_tot, 2)
 
+so2_eq_nh3_untreated = round(so2_eq_nh3_untreated, 2)
+so2_eq_nh3_ad = round(so2_eq_nh3_ad, 2)
+
+energy_renew_ad = round(energy_renew_ad, 2)
+
+ubp_ad = round(ubp_ad, 2)
+ubp_untreated = round(ubp_untreated, 2)
+
+
 manure_tot = round(manure_tot, 2)
 print("Total manure produced is", manure_tot, "m3.")
 
 # create the table
 table_env = PrettyTable()
 table_env.field_names = ["Data", "Anaerobic Digestion", "No Treatment"]
-table_env.add_row(["Heat produced after consumption [kWh]", heat_AD, heat_untreated])
-table_env.add_row(["Electricity produced after consumption [kWh]", electricity_AD, electricity_untreated])
+table_env.add_row(["Heat generated after consumption [kWh]", heat_AD, heat_untreated])
+table_env.add_row(["Electricity generated after consumption [kWh]", electricity_AD, electricity_untreated])
 table_env.add_row(["N fertilizer [kg N]", n_fertilizer_AD, n_fertilizer_untreated])
 table_env.add_row(["P fertilizer [kg P]", p_fertilizer_AD, p_fertilizer_untreated])
 table_env.add_row(["K fertilizer [kg K]", k_fertilizer_AD, k_fertilizer_untreated])
 table_env.add_row(["NH3 emitted [kg NH3]", nh3_tot_AD, nh3_tot_untreated])
 table_env.add_row(["N2O emitted [kg N2O]", n2o_tot_AD, n2o_tot_untreated])
 table_env.add_row(["CH4 emitted [kg CH4]", ch4_AD, ch4_untreated])
-table_env.add_row(["CO2 equivalent total [kg CO2]", co2_eq_AD, co2_eq_untreated])
+table_env.add_row(["Global warming potential 100 [kg CO2-eq.]", co2_eq_AD, co2_eq_untreated])
 table_env.add_row(["CO2 eq. from replaced mineral fertilizer [kg CO2]", co2_eq_mineral_fertilizer_AD, co2_eq_mineral_fertilizer_untreated])
+table_env.add_row(["Acidification [kg SO2-eq.]", so2_eq_nh3_ad, so2_eq_nh3_untreated])
+table_env.add_row(["Schweizerische Umweltbelastungspunkte [UBP]", ubp_ad, ubp_untreated])
+table_env.add_row(["Potential fossil fuel replaced [MJ oil-eq.]", energy_renew_ad, 0])
 
 # print the table
 print(table_env)
