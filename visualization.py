@@ -122,10 +122,11 @@ def calculate_data_farm(dict_farm, dict_calc):
 
 
 def create_animal_class(animal_class, df_farm):
-    row = df_farm.query("name == animal_class")
+    #row = df_farm[df_farm.isin([animal_class]).any(axis=1)]
+    row = df_farm.loc[df_farm["name"] == animal_class]
     num_animals = row["num-animals"].values[0]
     days_outside = row["days-outside"].values[0]
-    hours_outside = row["hours_outside"].values[0]
+    hours_outside = row["hours-outside"].values[0]
     manure_type = row["manure-type"].values[0]
     animal = getattr(ac, animal_class)(num_animals, days_outside, hours_outside, manure_type)
     animal.manure_prod()
@@ -224,15 +225,15 @@ def datatable_to_dataframe(dt_1, dt_2, dt_3, pre_storage, post_storage, distance
 
 def add_manure_storage_cell(df, pre_storage, post_storage, distance):
     df["additional-data"] = 0
-    df.loc["pre-storage"] = 0
-    df.at["pre-storage", "additional-data"] = pre_storage
-    df.at["pre-storage", "name"] = "pre_storage"
-    df.loc["post-storage"] = 0
-    df.at["post-storage", "additional-data"] = post_storage
-    df.at["post-storage", "name"] = "post_storage"
-    df.loc["distance"] = 0
-    df.at["distance", "additional-data"] = distance
-    df.at["distance", "name"] = "distance"
+    df.loc["pre"] = 0
+    df.at["pre", "additional-data"] = pre_storage
+    df.at["pre", "name"] = "pre_storage"
+    df.loc["post"] = 0
+    df.at["post", "additional-data"] = post_storage
+    df.at["post", "name"] = "post_storage"
+    df.loc["dist"] = 0
+    df.at["dist", "additional-data"] = distance
+    df.at["dist", "name"] = "distance"
     return df
 
 
@@ -261,7 +262,7 @@ def parse_contents(contents, filename, date):
         dash_table.DataTable(
             data=df.to_dict('records'),
             columns=[{'name': i, 'id': i} for i in df.columns],
-            id={"tpye": "farm-data-upload", "index": filename},
+            id={"type": "farm-data-upload", "index": filename},
         ),
 
         html.Hr(),  # horizontal line
@@ -386,11 +387,14 @@ def generate_empty_store_calc(n_clicks):
 )
 def calculate_data(farm_data, n_clicks):
     if n_clicks:
+        df_calc = create_data_frame_calc()
         #df_add = data_frame_calc
         #dict_add = calculate_data_farm(farm, data_frame_calc)
         farm_data_display = []
         #df_add.add(pd.DataFrame.from_records(dict_add))
         for farm in farm_data:
+            farm_calc = calculate_data_farm(farm, df_calc)
+            df_calc = farm_calc
             farm_data_display += [pd.DataFrame.from_records(farm)]
 
         data_table = []
@@ -403,6 +407,15 @@ def calculate_data(farm_data, n_clicks):
                               columns=[{"name": i, "id": i} for i in farm_data.columns],
                               editable=False,
                               id="data-table-store"
+             )]
+        data_table += [html.Br(),
+                          html.Pre(f"{df_calc}"),
+                          html.H3(f"calc data"),
+                          dash_table.DataTable(
+                              data=df_calc.to_dict("records"),
+                              columns=[{"name": i, "id": i} for i in df_calc.columns],
+                              editable=False,
+                              id="data-table-calc"
              )]
         return data_table
 

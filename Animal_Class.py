@@ -68,11 +68,11 @@ class Milchkuh(Cow):
         elif self.stable_type == 1:  # attributes for stabling mixed liquid and solids
             self.manure_l = 11000
             self.manure_s = 8900
-            self.manure_straw = 6800
+            self.manure_straw = 680
 
         else:  # attributes for stabling only solid manure
             self.manure_s = 21000
-            self.manure_straw = 30000
+            self.manure_straw = 3000
 
         self.manure_n = 112
         self.manure_p = 17
@@ -89,11 +89,11 @@ class Mutterkuh(Cow):  # assumption of "mittelschwere Rassen" as an average
         elif self.stable_type == 1:  # attributes for stabling mixed liquid and solids
             self.manure_l = 8700
             self.manure_s = 6700
-            self.manure_straw = 5000
+            self.manure_straw = 500
 
         else:  # attributes for stabling only solid manure
             self.manure_s = 16000
-            self.manure_straw = 25000
+            self.manure_straw = 2500
 
         self.manure_n = 85
         self.manure_p = 12
@@ -108,11 +108,11 @@ class Aufzuchtrind(Cow):  # assumption all are 1-2 years old as an average
         elif self.stable_type == 1:  # attributes for stabling mixed liquid and solids
             self.manure_l = 4000
             self.manure_s = 3200
-            self.manure_straw = 2500
+            self.manure_straw = 250
 
         else:  # attributes for stabling only solid manure
             self.manure_s = 7600
-            self.manure_straw = 12000
+            self.manure_straw = 1200
 
         self.manure_n = 40
         self.manure_p = 5.7
@@ -122,7 +122,7 @@ class Aufzuchtrind(Cow):  # assumption all are 1-2 years old as an average
 class Mastkalb(Cow):  # amount in "Anzahl Tierplätze" not in "Anzahl gemästeter Tiere"
     def manure_prod(self):
         self.manure_s = 3200
-        self.manure_straw = 4200
+        self.manure_straw = 420
 
         self.manure_n = 18
         self.manure_p = 3.1
@@ -137,11 +137,11 @@ class Mutterkuhkalb(Cow):       #assumption up to 350kg and per animal
         elif self.stable_type == 1:  # attributes for stabling mixed liquid and solids
             self.manure_l = 2000
             self.manure_s = 1600
-            self.manure_straw = 1300
+            self.manure_straw = 130
 
         else:  # attributes for stabling only solid manure
             self.manure_s = 3800
-            self.manure_straw = 4200
+            self.manure_straw = 420
 
         self.manure_n = 22
         self.manure_p = 3.1
@@ -156,11 +156,11 @@ class RiendviehMast(Cow):   #Assumption older than 160 days
         #elif self.stable_type == 1:  # attributes for stabling mixed liquid and solids
          #   self.manure_l = 4000
           #  self.manure_s = 3200
-           # self.manure_straw = 2500
+           # self.manure_straw = 250
 
         else:  # attributes for stabling only solid manure
             self.manure_s = 11000
-            self.manure_straw = 16000
+            self.manure_straw = 1600
 
         self.manure_n = 49
         self.manure_p = 5.7
@@ -175,11 +175,11 @@ class Zuchtstier(Cow):          #no differentiation of manure production, so ass
         elif self.stable_type == 1:  # attributes for stabling mixed liquid and solids
             self.manure_l = 9400
             self.manure_s = 7600
-            self.manure_straw = 5000
+            self.manure_straw = 500
 
         else:  # attributes for stabling only solid manure
             self.manure_s = 18000
-            self.manure_straw = 25000
+            self.manure_straw = 2500
 
         self.manure_n = 50
         self.manure_p = 7.9
