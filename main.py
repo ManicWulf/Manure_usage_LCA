@@ -161,10 +161,11 @@ for farm_name, farm_data in farms.items():
         manure_s_tot_farm += animal.manure_s_tot / 1000         #in m3
         manure_straw_tot_farm += animal.manure_straw_tot / 1000 #in m3
 
+
     n_tot += n_tot_farm
     p_tot += p_tot_farm
     k_tot += k_tot_farm
-    methane_pot_tot += methane_pot_tot_farm
+    methane_pot_tot += methane_pot_tot_farm + ms.methane_potential_straw(manure_straw_tot_farm)
     manure_tot_farm = manure_s_tot_farm + manure_l_tot_farm
     manure_tot += manure_tot_farm
     # Calculate values for pre storage
@@ -227,7 +228,8 @@ print("N-tot pre storage:", n_tot_pre_storage)
 #methane lost during anaerobic digestion
 effective_methane_AD = AD.methane_yield(effective_methane_pre_storage)             #in m3 per year
 methane_loss = AD.methane_loss(effective_methane_AD)                 #m3 per year
-co2_methane_loss = env.co2_methane(ms.ch4_volume_to_mass(methane_loss))                        #kg CO2
+methane_loss_mass = ms.ch4_volume_to_mass(methane_loss)
+co2_methane_loss = env.co2_methane(methane_loss_mass)                        #kg CO2
 co2_methane_pre_storage = env.co2_methane(ch4_pre_storage)                                      #kg CO2
 
 c_tot_digestate_AD = c_tot_pre_storage - ms.c_total(effective_methane_AD)  #in kg C
@@ -237,7 +239,7 @@ effective_methane_post_loss_AD = effective_methane_AD - methane_loss            
 ch4_post_storage = ms.ch4_release_AD(c_tot_digestate_AD, post_storage)  #how much ch4 is released during the storage of the digestate [kg/year]
 co2_methane_post_storage = env.co2_methane(ch4_post_storage)
 
-ch4_released_AD = ch4_pre_storage + ch4_post_storage + ms.ch4_volume_to_mass(methane_loss)       #kg CH4
+ch4_released_AD = ch4_pre_storage + ch4_post_storage + methane_loss_mass       #kg CH4
 
 #n_lost_post_storage_AD = ms.N_reduction_AD(n_tot_pre_storage, post_storage)              #how much N is lost during storage [kg/year]
 #nh3_post_storage_AD, n2o_post_storage_AD = ms.NH3_vs_N2O_AD(n_lost_post_storage_AD)                    #how much nh3 and n2o is released during storage [kg/year]
@@ -261,7 +263,7 @@ co2_n2o_field = env.co2_n2o(n2o_field_AD)
 
 print("N lost post storage AD:", n_lost_post_storage_AD)
 print("ch4 released AD post storage:", ch4_post_storage)
-print("CH4 released AD loss:", ms.ch4_volume_to_mass(methane_loss))
+print("CH4 released AD loss:", methane_loss_mass)
 
 nh3_tot_AD = nh3_field_AD + nh3_post_storage_AD + nh3_released_pre_storage
 n2o_tot_AD = n2o_field_AD + n2o_post_storage_AD + n2o_released_pre_storage
@@ -278,10 +280,10 @@ co2_eq_AD = env.co2_n2o(n2o_tot_AD) + env.co2_methane(ch4_released_AD) + co2_tra
 
 so2_eq_nh3_ad = env.acidification_nh3(nh3_tot_AD)
 
-
+co2_eq_electricity_chp = env.co2_swiss_el_mix(net_electricity_ad)
 
 #UBP
-n_eutrophication_ad = n_tot - n_acc_ad - n_lost_post_storage_AD
+n_eutrophication_ad = env.n_fertilizer_lost_post_application(n_acc_ad - n_lost_post_storage_AD)
 
 ubp_nh3_emission_ad = env.ubp_nh3(nh3_tot_AD)
 ubp_co2_emission_ad = env.ubp_co2_eq(co2_eq_AD)
@@ -326,7 +328,7 @@ print("N2O released untreated field:", n2o_untreated_field)
 
 
 #UBP
-n_eutrophication_untreated = n_tot - n_acc_untreated - n_lost_untreated
+n_eutrophication_untreated = env.n_fertilizer_lost_post_application(n_acc_untreated - n_lost_untreated)
 
 ubp_nh3_emission_untreated = env.ubp_nh3(nh3_tot_untreated)
 ubp_co2_emission_untreated = env.ubp_co2_eq(co2_eq_untreated)
@@ -484,3 +486,154 @@ sunburst_fig_2.update_layout(title_text="GHG Emissions from Anaerobic Digestion 
 
 # show the figure
 sunburst_fig_2.show()
+
+
+# bar chart CO2 equivalents
+co2_n2o_untreated = round(env.co2_n2o(n2o_tot_untreated), 2)
+co2_methane_untreated = round(env.co2_methane(ch4_untreated), 2)
+co2_chp_untreated = 0
+co2_transport_tot_untreated = 0
+
+
+values_co2_ad = [co2_n2o_ad, co2_methane_ad, co2_chp_AD, co2_transport_tot]
+values_co2_untreated = [co2_n2o_untreated, co2_methane_untreated, co2_chp_untreated, co2_transport_tot_untreated]
+labels_co2 = ["Type", "N2O", "CH4", "Generator", "Transport"]
+labels_co2_short = ["N2O", "CH4", "Generator", "Transport"]
+list_types = ["Anaerobic Digestion with CHP", "Untreated"]
+list_co2_n2o = [co2_n2o_ad, co2_n2o_untreated]
+list_co2_methane = [co2_methane_ad, co2_methane_untreated]
+list_co2_generator = [co2_chp_AD, co2_chp_untreated]
+list_co2_transport = [co2_transport_tot, co2_transport_tot_untreated]
+
+df_co2_bar = pd.DataFrame({
+    "Type": list_types,
+    "N2O": list_co2_n2o,
+    "CH4": list_co2_methane,
+    "Generator": list_co2_generator,
+    "Transport": list_co2_transport
+})
+
+print(df_co2_bar)
+
+co2_eq_bar = px.bar(df_co2_bar, x="Type", y=labels_co2_short, title="CO2 eq. GWP 100")
+co2_eq_bar.show()
+
+
+# Bar NH3 emissions with sources   nh3_tot_AD = nh3_field_AD + nh3_post_storage_AD + nh3_released_pre_storage
+
+list_pre_storage_nh3 = [nh3_released_pre_storage, 0]
+list_post_storage_nh3 = [nh3_post_storage_AD, nh3_untreated]
+list_field_nh3 = [nh3_field_AD, nh3_untreated_field]
+list_acid = [so2_eq_nh3_ad, so2_eq_nh3_untreated]
+labels_nh3 = ["Pre Storage", "Post storage", "Field application"]
+
+# create a new column to indicate the bar group
+df_nh3_bar = pd.DataFrame({
+    "Type": list_types * 2,
+    "Bar": ["A"] * 2 + ["B"] * 2,
+    "Pre Storage": list_pre_storage_nh3 + [0] * 2,
+    "Post Storage": list_post_storage_nh3 + [0] * 2,
+    "Field application": list_field_nh3 + [0] * 2,
+    "Acidification potential": [0] * 2 + list_acid
+})
+
+nh3_emission_bar = px.bar(df_nh3_bar, x="Type", y=labels_nh3 + ["Acidification potential"], color="Bar", barmode="group", title="NH3 emissions by life stage")
+nh3_emission_bar.show()
+
+
+""""df_nh3_bar = pd.DataFrame({
+    "Type": list_types,
+    "Pre Storage": list_pre_storage_nh3,
+    "Post Storage": list_post_storage_nh3,
+    "Field application": list_field_nh3,
+    "Acidification potential": list_acid
+})
+
+nh3_emission_bar = px.bar(df_nh3_bar, x="Type", y=[["Pre Storage", "Post storage", "Field application"], "Acidification potential"], barmode="group", title="NH3 emissions by life stage")
+nh3_emission_bar.show()
+"""
+
+# Bar chart electricity and heat
+
+list_electricity = [electricity_AD, electricity_untreated]
+list_heat = [heat_AD, heat_untreated]
+
+df_el_heat_bar = pd.DataFrame({
+    "Type": list_types,
+    "Electricity": list_electricity,
+    "Heat": list_heat
+})
+
+energy_generation_bar = px.bar(df_el_heat_bar, x="Type", y=["Electricity", "Heat"], barmode="group", title="Heat and electricity generated")
+energy_generation_bar.show()
+
+# Bar chart UBP
+# ubp_untreated = ubp_co2_emission_untreated + ubp_nh3_emission_untreated + ubp_n_eutrophication_untreated + ubp_energy_non_renew_untreated
+# ubp_ad = ubp_nh3_emission_ad + ubp_co2_emission_ad + ubp_n_eutrophication_ad + ubp_energy_renew_ad
+
+list_ubp_co2 = [ubp_co2_emission_ad, ubp_co2_emission_untreated]
+list_ubp_nh3 = [ubp_nh3_emission_ad, ubp_nh3_emission_untreated]
+list_ubp_eutrophication = [ubp_n_eutrophication_ad, ubp_n_eutrophication_untreated],
+list_ubp_energy = [ubp_energy_renew_ad, ubp_energy_non_renew_untreated]
+
+df_ubp_bar = pd.DataFrame({
+    "Type": list_types,
+    "CO2 emission": list_ubp_co2,
+    "NH3 emission": list_ubp_nh3,
+    "Eutrophication": list_ubp_eutrophication,
+    "Energy": list_ubp_energy
+})
+list_ubp_factors = ["CO2 emission", "NH3 emission", "Eutrophication", "Energy"]
+
+ubp_bar = px.bar(df_ubp_bar, x="Type", y=list_ubp_factors, title="Schweizerische Umweltbelastungspunkte (UBP)")
+ubp_bar.show()
+
+
+# Bar chart N2O emissions
+# n2o_untreated + n2o_untreated_field
+# n2o_tot_AD = n2o_field_AD + n2o_post_storage_AD + n2o_released_pre_storage
+
+list_n2o_pre_storage = [n2o_released_pre_storage, 0]
+list_n2o_post_storage = [n2o_post_storage_AD, n2o_untreated]
+list_n2o_field = [n2o_field_AD, n2o_untreated_field]
+
+
+df_n2o_bar = pd.DataFrame({
+    "Type": list_types,
+    "Pre Storage": list_n2o_pre_storage,
+    "Post Storage": list_n2o_post_storage,
+    "Field application": list_n2o_field
+})
+
+labels_n2o_bar = ["Pre Storage", "Post Storage", "Field application"]
+
+n2o_emission_bar = px.bar(df_n2o_bar, x="Type", y=labels_n2o_bar, title="N2O emissions")
+n2o_emission_bar.show()
+
+
+# CH4 emissions bar chart
+# ch4_released_AD = ch4_pre_storage + ch4_post_storage + methane_loss_mass
+
+list_ch4_pre_storage = [ch4_pre_storage, 0]
+list_ch4_post_storage = [ch4_post_storage, ch4_untreated]
+list_ch4_ad = [methane_loss_mass, 0]
+
+
+df_ch4_bar = pd.DataFrame({
+    "Type": list_types,
+    "Pre Storage": list_ch4_pre_storage,
+    "Post Storage": list_ch4_post_storage,
+    "digester": list_ch4_ad
+})
+
+labels_ch4_bar = ["Pre Storage", "Post Storage", "digester"]
+
+n2o_emission_bar = px.bar(df_n2o_bar, x="Type", y=labels_ch4_bar, title="CH4 emissions")
+n2o_emission_bar.show()
+
+
+# Bar chart fossil Fuel replaced
+
+
+
+#

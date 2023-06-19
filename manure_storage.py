@@ -2,6 +2,23 @@
 
 storage = 0         #days manure is stored before used
 
+#########################################
+#Methane Potential of straw, according to Comparison of methane production potential, biodegradability,
+# and kinetics of different organic substrates; Bioresource Technology 149 (2013) 565–569
+# Assumption of Wheat straw being used for bedding, rice straw has similar values so I assume most straw types would be similar
+
+ch4_potential_straw = 270       #ml/g VS = l / kg VS
+vs_perc_straw = 0.779                # % of total weight
+
+#further assumption: straw has no nutrients besides C (C:N ratio is 99.8), Straw does not experience significant degradation while used as bedding in terms of C-content,
+# degradation of straw during storage acts the same way as for manure, manure to straw ratio is assumed to always be optimal for working conditions
+
+
+def methane_potential_straw(straw):
+    vs_straw = vs_perc_straw * straw
+    return ch4_potential_straw * vs_straw
+##########################################################################
+
 
 #######################################################
 # some literature values

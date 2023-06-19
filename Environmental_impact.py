@@ -2,6 +2,15 @@
 #Environmental impacts
 ################################################################
 
+# assume good practice and otpimal fertilizer usage
+# a certain percentage of plant accessible fertilizer is going to be used by plants, the rest is washed out etc
+# STILL NEED TO FIND SOURCE!! for now assume 90% is used by plants
+
+n_fertilizer_efficiency = 0.9
+n_fertilizer_lost = 0.1
+
+def n_fertilizer_lost_post_application(n_fert):
+    return n_fertilizer_lost * n_fert
 
 ################################################################
 #CO2 equivalent
@@ -113,3 +122,15 @@ acid_factor_nh3 = 1.88      #SO2-eq.
 
 def acidification_nh3(nh3_emission):
     return nh3_emission * acid_factor_nh3
+
+
+
+###########################################
+# GHG impact electricity mix Switzerland
+
+co2_el_produktion = 29.6     # gCO2/kWh, Produktionsstrommix
+co2_el_lieferant = 54.7     # g CO2 / kWh, Lieferantenstrommix
+co2_el_verbraucher = 128    # g CO2 / kWh, Verbraucherstrommix
+
+def co2_swiss_el_mix(el_generated):
+    return co2_el_lieferant * el_generated         #input in kWh, output in g CO2
