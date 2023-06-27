@@ -57,12 +57,12 @@ def co2_mineral_k(mineral_k):   #input in kg mineral K
 #Transportation
 ################################################################
 
-fuel_consumption_tractor = 0.48     #[l/kg] assume tractors use diesel
-co2_diesel = 2.620                   #[g/l] in kg CO2 per liter of diesel
+fuel_consumption_tractor = 0.48     #[l/km] assume tractors use diesel
+co2_diesel = 2.620                   #[kg/l] in kg CO2 per liter of diesel
 
 
 def fuel_consumption_transport(manure_volume, distance): #input manure volume in m3 (assumption 1000kg/m3) and distance in km
-    num_trips = (manure_volume / 10) * 2          # assumption of using tractors with a slurry tank that can hold 10t of manure. Every manure transport includes 1 empty trip back!
+    num_trips = (manure_volume / 10) * 4          # assumption of using tractors with a slurry tank that can hold 10t of manure. Every manure transport includes 1 empty trip back! Due to a 1:1 dilution of the manure, twice as many trips are necessary
     fuel_per_trip = distance * fuel_consumption_tractor     #[l] in liter diesel
     return num_trips * fuel_per_trip
 

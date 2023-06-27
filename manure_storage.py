@@ -16,7 +16,7 @@ vs_perc_straw = 0.779                # % of total weight
 
 def methane_potential_straw(straw):
     vs_straw = vs_perc_straw * straw
-    return ch4_potential_straw * vs_straw
+    return ch4_potential_straw * vs_straw       # m3 CH4
 ##########################################################################
 
 
@@ -30,6 +30,7 @@ molar_c = 12            #g/mol
 molar_o = 16            #g/mol
 molar_n = 14            #g/mol
 rho_methane = 0.717     #density of methane at standard conditions [kg/Nm3] 0°C, 1 atm
+rho_co2 = 1.93          # density of co2 at standart conditions [kg/m3]
 molar_ch4 = molar_c + 4 * molar_h       #g/mol
 molar_n2o = 2 * molar_n + molar_o       #g/mol
 molar_nh3 = molar_n + 3 * molar_h       #g/mol
@@ -160,6 +161,14 @@ def ch4_volume_to_mass(methane_volume):     #input methane in m3 output methane 
 
 def ch4_mass_to_volume(methane_mass):
     return methane_mass / rho_methane
+
+
+def co2_volume_to_mass(co2_volume):
+    return co2_volume * rho_co2
+
+
+def co2_mass_to_volume(co2_mass):
+    return co2_mass / rho_co2
 
 
 def ch4_to_c(methane):                      #input methane in kg CH4 output in kg C

@@ -37,6 +37,9 @@ class Animal:
         self.methane_pot_s = self.amount * self.manure_s * self.manure_dw_s * self.manure_odw_s * self.manure_methane_s * self.manure_frac_y
         self.methane_pot_tot = self.methane_pot_l + self.methane_pot_s
 
+
+
+
                 # total amount of nutrients in collected manure
     def nutrients(self):
         self.n_tot = self.amount * self.manure_n * self.manure_frac_y
