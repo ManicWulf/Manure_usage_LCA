@@ -2,6 +2,7 @@ from prettytable import PrettyTable
 import plotly.graph_objs as go
 import pandas as pd
 import plotly.express as px
+import plotly.io as pio
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
@@ -131,6 +132,8 @@ def generate_farm_inputs(n_clicks, num_farms):
 path = os.path.join(os.getcwd(), 'farm_files')
 all_files = glob.glob(os.path.join(path, "*.csv"))
 
+print(path)
+
 farms = {}
 post_storage = None
 for filename in all_files:
@@ -158,6 +161,8 @@ for filename in all_files:
                         "pre_storage": pre_storage,
                         "animals": farm_dict}
 
+
+print(farms)
 """num_farms = int(input("How many farms do you want to calculate for? "))
 
 
@@ -243,6 +248,7 @@ for farm_name, farm_data in farms.items():
     manure_l_tot += manure_l_tot_farm
     manure_s_tot += manure_s_tot_farm
     manure_straw_tot += manure_straw_tot_farm
+    manure_tot_farm = manure_l_tot_farm + manure_straw_tot_farm + manure_s_tot_farm
     manure_tot += (manure_l_tot_farm + manure_straw_tot_farm + manure_s_tot_farm)
     # Calculate values for pre storage
 
@@ -278,11 +284,12 @@ for farm_name, farm_data in farms.items():
     ch4_released_pre_storage += ch4_pre_storage_farm        #kg CH4
 
 
-
-    diesel_transport_farm = env.fuel_consumption_transport(manure_tot_farm, farms[farm_name]["distance_from_power_plant"])
+    distance = farm_data["distance_from_power_plant"]
+    diesel_transport_farm = env.fuel_consumption_transport(manure_tot_farm, distance)
     co2_transport_farm = env.env_impact_diesel(diesel_transport_farm)
     diesel_transport_tot += diesel_transport_farm
     co2_transport_tot += co2_transport_farm
+
 
     #########################################
     # Steam pretreatment, same emissions for pre storage, using methane potential after pre storage for calculation of increased yield.
@@ -358,6 +365,18 @@ n2o_tot_untreated = n2o_untreated_field + n2o_untreated                     #kg 
 n_fertilizer_untreated = n_acc_untreated - n_lost_untreated
 p_fertilizer_untreated = p_tot
 k_fertilizer_untreated = k_tot
+
+# co2 eq make up
+# data_n2o_sources_untreated = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+# data_ch4_sources_untreated = [round(co2_methane_pre_storage, 2), round(co2_methane_loss, 2), round(co2_methane_post_storage, 2), 0]
+co2_n2o_pre_storage_untreated = 0
+co2_n2o_post_storage_untreated = env.co2_n2o(n2o_untreated)
+co2_n2o_field_untreated = env.co2_n2o(n2o_untreated_field)
+
+co2_methane_pre_storage_untreated = 0
+co2_methane_post_storage_untreated = env.co2_methane(ch4_untreated)
+co2_methane_field = 0
+
 co2_eq_mineral_fertilizer_untreated = env.co2_mineral_nitrate(n_fertilizer_untreated) + env.co2_mineral_k(k_fertilizer_untreated) + env.co2_mineral_P(p_fertilizer_untreated)
 
 co2_eq_untreated = env.co2_n2o(n2o_tot_untreated) + env.co2_methane(ch4_untreated)
@@ -394,19 +413,19 @@ ubp_untreated = ubp_co2_emission_untreated + ubp_nh3_emission_untreated + ubp_n_
 
 #methane lost during anaerobic digestion
 effective_methane_AD = AD.methane_yield(effective_methane_pre_storage)             #in m3 per year
-methane_loss = AD.methane_loss(effective_methane_AD)                 #m3 per year
-methane_loss_mass = ms.ch4_volume_to_mass(methane_loss)
-co2_methane_loss = env.co2_methane(methane_loss_mass)                        #kg CO2
+methane_loss_ad = AD.methane_loss(effective_methane_AD)                 #m3 per year
+methane_loss_mass_ad = ms.ch4_volume_to_mass(methane_loss_ad)
+co2_methane_loss = env.co2_methane(methane_loss_mass_ad)                        #kg CO2
 co2_methane_pre_storage = env.co2_methane(ch4_pre_storage)                                      #kg CO2
 
 c_tot_digestate_AD = c_tot_pre_storage - ms.c_total(effective_methane_AD)  #in kg C
 
-effective_methane_post_loss_AD = effective_methane_AD - methane_loss                                 #m3 per year
+effective_methane_post_loss_AD = effective_methane_AD - methane_loss_ad                                 #m3 per year
 
 ch4_post_storage = ms.ch4_release_AD(c_tot_digestate_AD, post_storage)  #how much ch4 is released during the storage of the digestate [kg/year]
 co2_methane_post_storage = env.co2_methane(ch4_post_storage)
 
-ch4_released_AD = ch4_pre_storage + ch4_post_storage + methane_loss_mass       #kg CH4
+ch4_released_ad = ch4_pre_storage + ch4_post_storage + methane_loss_mass_ad       #kg CH4
 
 #n_lost_post_storage_AD = ms.N_reduction_AD(n_tot_pre_storage, post_storage)              #how much N is lost during storage [kg/year]
 #nh3_post_storage_AD, n2o_post_storage_AD = ms.NH3_vs_N2O_AD(n_lost_post_storage_AD)                    #how much nh3 and n2o is released during storage [kg/year]
@@ -420,9 +439,9 @@ nh3_field_AD = ms.nh3_field(n_acc_ad)                      #in kg N per year
 n2o_field_AD = ms.n2o_field(n_acc_ad - nh3_field_AD)                      #in kg N per year
 nh3_field_AD = ms.n_to_nh3(nh3_field_AD)        #in kg NH3
 n2o_field_AD = ms.n_to_n2o(n2o_field_AD)        #in kg N2O
-n_fertilizer_AD = n_acc_ad - n_lost_post_storage_AD
-p_fertilizer_AD = p_tot
-k_fertilizer_AD = k_tot
+n_fertilizer_ad = n_acc_ad - n_lost_post_storage_AD
+p_fertilizer_ad = p_tot
+k_fertilizer_ad = k_tot
 
 co2_n2o_pre_storage = env.co2_n2o(n2o_released_pre_storage)
 co2_n2o_post_storage = env.co2_n2o(n2o_post_storage_AD)
@@ -430,32 +449,55 @@ co2_n2o_field = env.co2_n2o(n2o_field_AD)
 
 
 
-nh3_tot_AD = nh3_field_AD + nh3_post_storage_AD + nh3_released_pre_storage
-n2o_tot_AD = n2o_field_AD + n2o_post_storage_AD + n2o_released_pre_storage
+nh3_tot_ad = nh3_field_AD + nh3_post_storage_AD + nh3_released_pre_storage
+n2o_tot_ad = n2o_field_AD + n2o_post_storage_AD + n2o_released_pre_storage
 biogas_AD, co2_bg_AD = AD.biogas(effective_methane_post_loss_AD)                      #in [m3]
 heat_chp_AD, electricity_chp_AD = CHP.energy_produced(effective_methane_post_loss_AD)      #in [kWh]
 heat_demand_AD = AD.heat_demand(manure_tot)                        #in [kWh]
 electricity_demand_ad = AD.electricity_demand(biogas_AD)            #in [kWh]
-heat_net_AD = heat_chp_AD - heat_demand_AD     #heat produced minus heat used for heating the digestate
-net_electricity_ad = electricity_chp_AD - electricity_demand_ad
-co2_chp_AD = CHP.co2_release(co2_bg_AD, effective_methane_post_loss_AD)   #CO2 released after burning of the biogas in CHP, biogenic CO2
+heat_net_ad = heat_chp_AD - heat_demand_AD     #heat produced minus heat used for heating the digestate
+electricity_net_ad = electricity_chp_AD - electricity_demand_ad
 
-co2_eq_mineral_fertilizer_AD = env.co2_mineral_nitrate(n_fertilizer_AD) + env.co2_mineral_k(k_fertilizer_AD) + env.co2_mineral_P(p_fertilizer_AD)
-co2_eq_AD = env.co2_n2o(n2o_tot_AD) + env.co2_methane(ch4_released_AD) + co2_transport_tot
+co2_eq_mineral_fertilizer_ad = env.co2_mineral_nitrate(n_fertilizer_ad) + env.co2_mineral_k(k_fertilizer_ad) + env.co2_mineral_P(p_fertilizer_ad)
+co2_eq_ad = env.co2_n2o(n2o_tot_ad) + env.co2_methane(ch4_released_ad) + co2_transport_tot
 
-so2_eq_nh3_ad = env.acidification_nh3(nh3_tot_AD)
+so2_eq_nh3_ad = env.acidification_nh3(nh3_tot_ad)
 
-co2_eq_electricity_chp = env.co2_swiss_el_mix(net_electricity_ad)
+
+co2_biogenic_ad = CHP.co2_release(co2_bg_AD, effective_methane_post_loss_AD)   #CO2 released after burning of the biogas in CHP, biogenic CO2
+
+# CO2 eq. of electricity demand, assuming it is bought from the electricity net.
+co2_eq_electricity_demand_ad = env.co2_swiss_el_mix(electricity_demand_ad)   # in kg CO2
+
+
+# CO2 eq. per kWh of electricity sold
+co2_eq_el_production_ad = co2_eq_ad / electricity_chp_AD
+
+
+# CO2 emissions avoided from heating assuming oil would be used:
+
+co2_heat_avoided_ad = env.co2_oil_kwh(heat_net_ad)
+
+# CO2 emissions avoided from electricity sold, assuming swiss elec mix as marginal resource
+
+co2_el_avoided_ad = env.co2_swiss_el_mix(electricity_chp_AD)
+# CO2 avoided with el + heat
+
+co2_avoided_tot_ad = co2_el_avoided_ad + co2_heat_avoided_ad
+
+
 
 #UBP
 n_eutrophication_ad = env.n_fertilizer_lost_post_application(n_acc_ad - n_lost_post_storage_AD)
 
-ubp_nh3_emission_ad = env.ubp_nh3(nh3_tot_AD)
-ubp_co2_emission_ad = env.ubp_co2_eq(co2_eq_AD)
+ubp_nh3_emission_ad = env.ubp_nh3(nh3_tot_ad)
+ubp_co2_emission_ad = env.ubp_co2_eq(co2_eq_ad)
 ubp_n_eutrophication_ad = env.ubp_eutrophication_n(n_eutrophication_ad)
 
 energy_renew_ad = (electricity_chp_AD + heat_chp_AD) * 3.6      #total energy produced in MJ oil eq.
-ubp_energy_renew_ad = env.ubp_energy_renew(energy_renew_ad)
+
+electricity_demand_ad_joule = electricity_demand_ad * 3.6       # el. demand in MJ
+ubp_energy_renew_ad = env.ubp_energy_non_renew(electricity_demand_ad_joule)     # ubp for electricity used, assuming that el is bought and therefore non renewable. Heat demand is covered by own production, so no additional ubp
 
 ubp_ad = ubp_nh3_emission_ad + ubp_co2_emission_ad + ubp_n_eutrophication_ad + ubp_energy_renew_ad
 
@@ -489,33 +531,66 @@ heat_chp_upgrading, electricity_chp_upgrading = CHP.energy_produced(methane_tot_
 electricity_sofc_upgrading = CHP.el_produced_sofc(biomethane_volume_3_stage * 0.98)     # electricity potential if the biomethane is used in fuel cells, biomethane at 98% methane content
 
 heat_net_upgrading = heat_chp_upgrading - heat_demand_AD        # kWh
+
+electricity_produced_upgrading = electricity_sofc_upgrading + electricity_chp_upgrading
 electricity_net_upgrading = electricity_chp_upgrading + electricity_sofc_upgrading - electricity_demand_upgrading_3_stage_tot
 
 # environmental impacts
+ch4_released_ad_upgrading = ch4_released_ad
+
 
 ch4_loss_upgrading_mass = ms.ch4_volume_to_mass(ch4_loss_upgrading_3_stage)     # m3 to kg ch4
-ch4_released_upgrading_3_stage = ch4_released_AD + ch4_loss_upgrading_mass      # in kg CH4
+ch4_released_upgrading_3_stage = ch4_released_ad_upgrading + ch4_loss_upgrading_mass      # in kg CH4
 
-co2_eq_electricity_chp_upgrading = env.co2_swiss_el_mix(electricity_net_upgrading)
+co2_methane_loss_upgrading = env.co2_methane(ch4_loss_upgrading_mass)       # in kg CO2 eq.
+
+
 
 co2_methane_upgrading = env.co2_methane(ch4_released_upgrading_3_stage)
 
-co2_eq_upgrading = env.co2_n2o(n2o_tot_AD) + co2_methane_upgrading + co2_transport_tot
+co2_eq_upgrading = env.co2_n2o(n2o_tot_ad) + co2_methane_upgrading + co2_transport_tot
 
 co2_biogas_upgrading_chp = bg.co2_biogas(biogas_chp_upgrading)
-co2_biogenic_upgrading = ms.co2_volume_to_mass(co2_biogas_upgrading_chp + offgas_biomethane_co2_3_stage)
+
+co2_eq_electricity_chp_upgrading = env.co2_swiss_el_mix(electricity_chp_upgrading)        # in kg CO2
+co2_eq_electricity_sofc_upgrading = env.co2_swiss_el_mix(electricity_sofc_upgrading)      #kg CO2
+
 
 energy_renew_upgrading = (electricity_chp_upgrading + heat_chp_upgrading) * 3.6
 
 
+co2_biogenic_upgrading = ms.co2_volume_to_mass(co2_biogas_upgrading_chp + offgas_biomethane_co2_3_stage)
+
+# CO2 eq. of electricity demand, assuming it is bought from the electricity net.
+co2_eq_electricity_demand_bg_upgrade_upgrading = env.co2_swiss_el_mix(electricity_demand_upgrading_3_stage)
+co2_eq_electricity_demand_upgrading = env.co2_swiss_el_mix(electricity_demand_upgrading_3_stage_tot)    # kg CO2
+
+
+# CO2 eq. per kWh of electricity sold
+co2_eq_el_production_upgrading = co2_eq_upgrading / electricity_produced_upgrading
+
+
+# CO2 emissions avoided from heating assuming oil would be used:
+
+co2_heat_avoided_upgrading = env.co2_oil_kwh(heat_net_upgrading)
+
+# CO2 emissions avoided from electricity sold, assuming swiss elec mix as marginal resource
+
+co2_el_avoided_upgrading = env.co2_swiss_el_mix(electricity_produced_upgrading)
+# CO2 avoided with el + heat
+
+co2_avoided_tot_upgrading = co2_el_avoided_upgrading + co2_heat_avoided_upgrading
+
 #UBP
 n_eutrophication_upgrading = env.n_fertilizer_lost_post_application(n_acc_ad - n_lost_post_storage_AD)
 
-ubp_nh3_emission_upgrading = env.ubp_nh3(nh3_tot_AD)
+ubp_nh3_emission_upgrading = env.ubp_nh3(nh3_tot_ad)
 ubp_co2_emission_upgrading = env.ubp_co2_eq(co2_eq_upgrading)
 ubp_n_eutrophication_upgrading = env.ubp_eutrophication_n(n_eutrophication_upgrading)
 
-ubp_energy_renew_upgrading = env.ubp_energy_renew(energy_renew_upgrading)
+
+electricity_demand_upgrading_3_stage_tot_joule = electricity_demand_upgrading_3_stage_tot * 3.6     # el. demand in MJ
+ubp_energy_renew_upgrading = env.ubp_energy_non_renew(electricity_demand_upgrading_3_stage_tot_joule)  # ubp for electricity used, assuming that el is bought and therefore non renewable. Heat demand is covered by own production, so no additional ubp
 
 ubp_upgrading = ubp_nh3_emission_upgrading + ubp_co2_emission_upgrading + ubp_n_eutrophication_upgrading + ubp_energy_renew_upgrading
 
@@ -575,6 +650,7 @@ co2_n2o_post_storage_steam = env.co2_n2o(n2o_post_storage_ad_steam)
 co2_n2o_field_steam = env.co2_n2o(n2o_field_ad_steam)
 
 
+
 nh3_tot_ad_steam = nh3_field_ad_steam + nh3_post_storage_ad_steam + nh3_released_pre_storage
 n2o_tot_ad_steam = n2o_field_ad_steam + n2o_post_storage_ad_steam + n2o_released_pre_storage
 biogas_ad_steam, co2_bg_ad_steam = AD.biogas(effective_methane_post_loss_ad_steam)                      #in [m3]
@@ -583,7 +659,7 @@ heat_demand_ad_steam = AD.heat_demand(manure_tot)                        #in [kW
 electricity_demand_ad_steam = AD.electricity_demand(biogas_ad_steam)            #in [kWh]
 heat_net_ad_steam = heat_chp_ad_steam - heat_demand_ad_steam - heat_demand_steam     #heat produced minus heat used for heating the digestate and for steam explosions [kWh]
 net_electricity_ad_steam = electricity_chp_ad_steam - electricity_demand_ad_steam
-co2_chp_ad_steam = CHP.co2_release(co2_bg_ad_steam, effective_methane_post_loss_ad_steam)   #CO2 released after burning of the biogas in CHP, biogenic CO2
+co2_biogenic_ad_steam = CHP.co2_release(co2_bg_ad_steam, effective_methane_post_loss_ad_steam)   #CO2 released after burning of the biogas in CHP, biogenic CO2
 
 co2_n2o_ad_steam = env.co2_n2o(n2o_tot_ad_steam)
 co2_ch4_ad_steam = env.co2_methane(ch4_released_ad_steam)
@@ -593,7 +669,29 @@ co2_eq_ad_steam = co2_n2o_ad_steam + co2_ch4_ad_steam + co2_transport_tot
 
 so2_eq_nh3_ad_steam = env.acidification_nh3(nh3_tot_ad_steam)
 
-co2_eq_electricity_chp_steam = env.co2_swiss_el_mix(net_electricity_ad_steam)
+co2_eq_electricity_chp_steam = env.co2_swiss_el_mix(net_electricity_ad_steam)       # kg CO2
+
+
+
+co2_biogenic_steam = CHP.co2_release(co2_bg_ad_steam, effective_methane_post_loss_ad_steam)   #CO2 released after burning of the biogas in CHP, biogenic CO2
+
+# CO2 eq. of electricity demand, assuming it is bought from the electricity net.
+co2_eq_electricity_demand_steam = env.co2_swiss_el_mix(electricity_demand_ad_steam)     #kg CO2
+
+
+# CO2 eq. per kWh of electricity sold
+co2_eq_el_production_steam = co2_eq_ad_steam / electricity_chp_ad_steam
+
+# CO2 emissions avoided from heating assuming oil would be used:
+
+co2_heat_avoided_steam = env.co2_oil_kwh(heat_net_ad_steam)
+
+# CO2 emissions avoided from electricity sold, assuming swiss elec mix as marginal resource
+
+co2_el_avoided_steam = env.co2_swiss_el_mix(electricity_chp_ad_steam)
+# CO2 avoided with el + heat
+
+co2_avoided_tot_steam = co2_el_avoided_steam + co2_heat_avoided_steam
 
 #UBP
 n_eutrophication_ad_steam = env.n_fertilizer_lost_post_application(n_acc_ad_steam - n_lost_post_storage_ad_steam)
@@ -603,7 +701,8 @@ ubp_co2_emission_ad_steam = env.ubp_co2_eq(co2_eq_ad_steam)
 ubp_n_eutrophication_ad_steam = env.ubp_eutrophication_n(n_eutrophication_ad_steam)
 
 energy_renew_ad_steam = (electricity_chp_ad_steam + heat_chp_ad_steam) * 3.6      #total energy produced in MJ oil eq.
-ubp_energy_renew_ad_steam = env.ubp_energy_renew(energy_renew_ad_steam)
+electricity_demand_ad_steam_joule = electricity_demand_ad_steam * 3.6           # el. demand in MJ
+ubp_energy_renew_ad_steam = env.ubp_energy_non_renew(electricity_demand_ad_steam_joule)     # ubp for electricity used, assuming that el is bought and therefore non renewable. Heat demand is covered by own production, so no additional ubp
 
 ubp_ad_steam = ubp_nh3_emission_ad_steam + ubp_co2_emission_ad_steam + ubp_n_eutrophication_ad_steam + ubp_energy_renew_ad_steam
 
@@ -611,7 +710,7 @@ ubp_ad_steam = ubp_nh3_emission_ad_steam + ubp_co2_emission_ad_steam + ubp_n_eut
 
 
 #####################################
-# Biogas upgrading with 3-stage-membrane to 98% CH4 content in biomethane
+# Biogas upgrading and Steam treatment
 # use of CHP with offgas and 30% of raw biogas to meet heat needs of plant
 #####################################
 
@@ -644,17 +743,47 @@ electricity_net_upgrading_steam = electricity_chp_upgrading_steam + electricity_
 ch4_loss_upgrading_mass_steam = ms.ch4_volume_to_mass(ch4_loss_upgrading_3_stage_steam)     # m3 to kg ch4
 ch4_released_upgrading_3_stage_steam = ch4_released_ad_steam + ch4_loss_upgrading_mass_steam      # in kg CH4
 
-co2_eq_electricity_chp_upgrading_steam = env.co2_swiss_el_mix(electricity_net_upgrading_steam)
+co2_eq_electricity_chp_upgrading_steam = env.co2_swiss_el_mix(electricity_net_upgrading_steam)      # kg CO2
+
+co2_methane_loss_upgrading_steam = env.co2_methane(ch4_loss_upgrading_mass_steam)           # co2 eq of methane lost during the upgrading process
+co2_methane_loss_ad_upgrading_steam = env.co2_methane(ch4_released_ad_steam)                # co2 eq of methane lost during the ad process after steam treatment
 
 co2_methane_upgrading_steam = env.co2_methane(ch4_released_upgrading_3_stage_steam)
 
-co2_eq_upgrading_steam = env.co2_n2o(n2o_tot_ad_steam) + co2_methane_upgrading_steam + co2_transport_tot
+co2_eq_upgrading_steam = co2_methane_pre_storage_steam + co2_methane_post_storage_steam + env.co2_n2o(n2o_tot_ad_steam) + co2_methane_upgrading_steam + co2_transport_tot
 
 co2_biogas_upgrading_chp_steam = bg.co2_biogas(biogas_chp_upgrading_steam)
+
+
+energy_renew_upgrading_steam = (electricity_chp_upgrading_steam + heat_chp_upgrading_steam) *3.6      # MJ of total electricity + heat generated
+
+electricity_demand_upgrading_3_stage_tot_steam_joule = electricity_demand_upgrading_3_stage_tot_steam * 3.6     # el. demand in MJ
+
+electricity_produced_upgrading_steam = electricity_chp_upgrading_steam + electricity_sofc_upgrading_steam
+
 co2_biogenic_upgrading_steam = ms.co2_volume_to_mass(co2_biogas_upgrading_chp_steam + offgas_biomethane_co2_3_stage_steam)
 
-energy_renew_upgrading_steam = (electricity_chp_upgrading_steam + heat_chp_upgrading_steam) * 3.6
+# CO2 eq. of electricity demand, assuming it is bought from the electricity net.
+co2_eq_electricity_demand_ad_upgrading_steam = env.co2_swiss_el_mix(electricity_demand_ad_steam)
+co2_eq_electricity_demand_bg_upgrade_upgrading_steam = env.co2_swiss_el_mix(electricity_demand_upgrading_3_stage_steam)
 
+co2_eq_electricity_demand_upgrading_steam = env.co2_swiss_el_mix(electricity_demand_upgrading_3_stage_tot_steam)        #kg CO2
+
+
+# CO2 eq. per kWh of electricity sold
+co2_eq_el_production_upgrading_steam = co2_eq_upgrading_steam / electricity_produced_upgrading_steam
+
+
+# CO2 emissions avoided from heating assuming oil would be used:
+
+co2_heat_avoided_upgrading_steam = env.co2_oil_kwh(heat_net_upgrading_steam)
+
+# CO2 emissions avoided from electricity sold, assuming swiss elec mix as marginal resource
+
+co2_el_avoided_upgrading_steam = env.co2_swiss_el_mix(electricity_produced_upgrading_steam)
+# CO2 avoided with el + heat
+
+co2_avoided_tot_upgrading_steam = co2_el_avoided_upgrading_steam + co2_heat_avoided_upgrading_steam
 
 #UBP
 n_eutrophication_upgrading_steam = env.n_fertilizer_lost_post_application(n_acc_ad_steam - n_lost_post_storage_ad_steam)
@@ -663,7 +792,7 @@ ubp_nh3_emission_upgrading_steam = env.ubp_nh3(nh3_tot_ad_steam)
 ubp_co2_emission_upgrading_steam = env.ubp_co2_eq(co2_eq_upgrading_steam)
 ubp_n_eutrophication_upgrading_steam = env.ubp_eutrophication_n(n_eutrophication_upgrading_steam)
 
-ubp_energy_renew_upgrading_steam = env.ubp_energy_renew(energy_renew_upgrading_steam)
+ubp_energy_renew_upgrading_steam = env.ubp_energy_non_renew(electricity_demand_upgrading_3_stage_tot_steam_joule)
 
 ubp_upgrading_steam = ubp_nh3_emission_upgrading_steam + ubp_co2_emission_upgrading_steam + ubp_n_eutrophication_upgrading_steam + ubp_energy_renew_upgrading_steam
 
@@ -711,19 +840,22 @@ ubp_upgrading_steam = ubp_nh3_emission_upgrading_steam + ubp_co2_emission_upgrad
 #print data as a table
 #######################################################################################################################
 
+list_figures = []       # list of all figures, for printing and downloading
+
+
 # round the values to 2 digits after the comma
 
 # round AD
-nh3_tot_AD = round(nh3_tot_AD, 2)
-n2o_tot_AD = round(n2o_tot_AD, 2)
-ch4_AD = round(ch4_released_AD, 2)
-heat_AD = round(heat_net_AD, 2)
-electricity_AD = round(net_electricity_ad, 2)
-co2_eq_AD = round(co2_eq_AD, 2)
-n_fertilizer_AD = round(n_fertilizer_AD, 2)
-p_fertilizer_AD = round(p_fertilizer_AD, 2)
-k_fertilizer_AD = round(k_fertilizer_AD, 2)
-co2_eq_mineral_fertilizer_AD = round(co2_eq_mineral_fertilizer_AD, 2) * -1
+nh3_tot_ad = round(nh3_tot_ad, 2)
+n2o_tot_ad = round(n2o_tot_ad, 2)
+ch4_released_ad = round(ch4_released_ad, 2)
+heat_net_ad = round(heat_net_ad, 2)
+electricity_net_ad = round(electricity_net_ad, 2)
+co2_eq_ad = round(co2_eq_ad, 2)
+n_fertilizer_ad = round(n_fertilizer_ad, 2)
+p_fertilizer_ad = round(p_fertilizer_ad, 2)
+k_fertilizer_ad = round(k_fertilizer_ad, 2)
+co2_eq_mineral_fertilizer_ad = round(co2_eq_mineral_fertilizer_ad, 2) * -1
 so2_eq_nh3_ad = round(so2_eq_nh3_ad, 2)
 energy_renew_ad = round(energy_renew_ad, 2)
 ubp_ad = round(ubp_ad, 2)
@@ -790,35 +922,16 @@ electricity_net_upgrading_steam = round(electricity_net_upgrading_steam, 2)
 ch4_released_upgrading_3_stage_steam = round(ch4_released_upgrading_3_stage_steam, 2)
 co2_eq_upgrading_steam = round(co2_eq_upgrading_steam, 2)
 ubp_upgrading_steam = round(ubp_upgrading_steam, 2)
-energy_renew_upgrading_steam = round(energy_renew_upgrading_steam, 2)
 biomethane_volume_3_stage_steam = round(biomethane_volume_3_stage_steam, 2)
 co2_methane_upgrading_steam = round(co2_methane_upgrading_steam, 2)
 
 
 
 ######################################
-# create the table
+# create list with dataframes for sensitivity analysis
 #####################################
-"""table_env = PrettyTable()
-table_env.field_names = ["Data", "Anaerobic Digestion", "No Treatment"]
-table_env.add_row(["Heat generated after consumption [kWh]", heat_AD, heat_untreated])
-table_env.add_row(["Electricity generated after consumption [kWh]", electricity_AD, electricity_untreated])
-table_env.add_row(["N fertilizer [kg N]", n_fertilizer_AD, n_fertilizer_untreated])
-table_env.add_row(["P fertilizer [kg P]", p_fertilizer_AD, p_fertilizer_untreated])
-table_env.add_row(["K fertilizer [kg K]", k_fertilizer_AD, k_fertilizer_untreated])
-table_env.add_row(["NH3 emitted [kg NH3]", nh3_tot_AD, nh3_tot_untreated])
-table_env.add_row(["N2O emitted [kg N2O]", n2o_tot_AD, n2o_tot_untreated])
-table_env.add_row(["CH4 emitted [kg CH4]", ch4_AD, ch4_untreated])
-table_env.add_row(["Global warming potential 100 [kg CO2-eq.]", co2_eq_AD, co2_eq_untreated])
-table_env.add_row(["CO2 eq. from replaced mineral fertilizer [kg CO2]", co2_eq_mineral_fertilizer_AD, co2_eq_mineral_fertilizer_untreated])
-table_env.add_row(["Acidification [kg SO2-eq.]", so2_eq_nh3_ad, so2_eq_nh3_untreated])
-table_env.add_row(["Schweizerische Umweltbelastungspunkte [UBP]", ubp_ad, ubp_untreated])
-table_env.add_row(["Potential fossil fuel replaced [MJ oil-eq.]", energy_renew_ad, 0])
 
-# print the table
-print(table_env)
-"""
-
+list_sens_analysis = []
 
 ##########################
 #plots using plotly
@@ -828,19 +941,18 @@ print(table_env)
 
 # create the DataFrame
 data = [
-    ["Heat generated after consumption [kWh]", heat_untreated, heat_AD, heat_net_upgrading, heat_net_ad_steam, heat_net_upgrading_steam],
-    ["Electricity generated after consumption [kWh]", electricity_untreated, electricity_AD, electricity_net_upgrading, net_electricity_ad_steam, electricity_net_upgrading_steam],
-    ["N fertilizer [kg N]", n_fertilizer_untreated, n_fertilizer_AD, n_fertilizer_AD, n_fertilizer_ad_steam, n_fertilizer_ad_steam],
-    ["P fertilizer [kg P]", p_fertilizer_untreated, p_fertilizer_AD, p_fertilizer_AD, p_fertilizer_ad_steam, p_fertilizer_ad_steam],
-    ["K fertilizer [kg K]", k_fertilizer_untreated, k_fertilizer_AD, k_fertilizer_AD, k_fertilizer_ad_steam, k_fertilizer_ad_steam],
-    ["NH3 emitted [kg NH3]", nh3_tot_untreated, nh3_tot_AD, nh3_tot_AD, nh3_tot_ad_steam, nh3_tot_ad_steam],
-    ["N2O emitted [kg N2O]", n2o_tot_untreated,  n2o_tot_AD,n2o_tot_AD, n2o_tot_ad_steam, n2o_tot_ad_steam],
-    ["CH4 emitted [kg CH4]", ch4_untreated, ch4_AD, ch4_released_upgrading_3_stage, ch4_released_ad_steam, ch4_released_upgrading_3_stage_steam],
-    ["Global warming potential 100 [kg CO2-eq.]", co2_eq_untreated, co2_eq_AD, co2_eq_upgrading, co2_eq_ad_steam, co2_eq_upgrading_steam],
-    ["CO2 eq. from replaced mineral fertilizer [kg CO2]", co2_eq_mineral_fertilizer_untreated, co2_eq_mineral_fertilizer_AD, co2_eq_mineral_fertilizer_AD, co2_eq_mineral_fertilizer_ad_steam, co2_eq_mineral_fertilizer_ad_steam],
+    ["Heat generated after consumption [kWh]", heat_untreated, heat_net_ad, heat_net_upgrading, heat_net_ad_steam, heat_net_upgrading_steam],
+    ["Electricity generated after consumption [kWh]", electricity_untreated, electricity_net_ad, electricity_net_upgrading, net_electricity_ad_steam, electricity_net_upgrading_steam],
+    ["N fertilizer [kg N]", n_fertilizer_untreated, n_fertilizer_ad, n_fertilizer_ad, n_fertilizer_ad_steam, n_fertilizer_ad_steam],
+    ["P fertilizer [kg P]", p_fertilizer_untreated, p_fertilizer_ad, p_fertilizer_ad, p_fertilizer_ad_steam, p_fertilizer_ad_steam],
+    ["K fertilizer [kg K]", k_fertilizer_untreated, k_fertilizer_ad, k_fertilizer_ad, k_fertilizer_ad_steam, k_fertilizer_ad_steam],
+    ["NH3 emitted [kg NH3]", nh3_tot_untreated, nh3_tot_ad, nh3_tot_ad, nh3_tot_ad_steam, nh3_tot_ad_steam],
+    ["N2O emitted [kg N2O]", n2o_tot_untreated, n2o_tot_ad, n2o_tot_ad, n2o_tot_ad_steam, n2o_tot_ad_steam],
+    ["CH4 emitted [kg CH4]", ch4_untreated, ch4_released_ad, ch4_released_upgrading_3_stage, ch4_released_ad_steam, ch4_released_upgrading_3_stage_steam],
+    ["Global warming potential 100 [kg CO2-eq.]", co2_eq_untreated, co2_eq_ad, co2_eq_upgrading, co2_eq_ad_steam, co2_eq_upgrading_steam],
+    ["CO2 eq. from replaced mineral fertilizer [kg CO2]", co2_eq_mineral_fertilizer_untreated, co2_eq_mineral_fertilizer_ad, co2_eq_mineral_fertilizer_ad, co2_eq_mineral_fertilizer_ad_steam, co2_eq_mineral_fertilizer_ad_steam],
     ["Acidification [kg SO2-eq.]", so2_eq_nh3_untreated, so2_eq_nh3_ad, so2_eq_nh3_ad, so2_eq_nh3_ad_steam, so2_eq_nh3_ad_steam],
     ["Schweizerische Umweltbelastungspunkte [UBP]", ubp_untreated, ubp_ad, ubp_upgrading, ubp_ad_steam, ubp_upgrading_steam],
-    ["Potential fossil fuel replaced [MJ oil-eq.]", 0, energy_renew_ad, energy_renew_upgrading, energy_renew_ad_steam, energy_renew_upgrading_steam],
     ["Biomethane produced [m3]", 0, 0, biomethane_volume_3_stage, 0, biomethane_volume_3_stage_steam]
 ]
 columns = ["Data", "Untreated", "Anaerobic Digestion", "AD + Biogas upgrading + CHP", "AD + Steam + CHP", "AD + Steam + Upgrading + CHP"]
@@ -856,7 +968,49 @@ table_env_plot = go.Figure(data=[go.Table(
                align=['left'] + ['right'] * (len(df.columns) - 1)))
 ])
 
-table_env_plot.show()
+table_env_plot.update_layout(title="General overview table")
+
+list_figures.append(table_env_plot)
+
+
+
+
+# create table for CO2/kWh
+
+
+
+
+# create the DataFrame
+data_co2_eq_el_production = [
+    ["Electricity generated [kWh]", None, electricity_net_ad, electricity_produced_upgrading, electricity_chp_ad_steam, electricity_produced_upgrading_steam],
+    ["CO2 eq. [kg CO2-eq.]", None, co2_eq_ad, co2_eq_upgrading, co2_eq_ad_steam, co2_eq_upgrading_steam],
+    ["Global warming impact of generated electricity [kg CO2-eq. / kWh]", env.co2_el_verbraucher, co2_eq_el_production_ad, co2_eq_el_production_upgrading, co2_eq_el_production_steam, co2_eq_el_production_upgrading_steam],
+]
+# round values
+for i, item_list in enumerate(data_co2_eq_el_production):
+    for j, list_item in enumerate(item_list):
+        if isinstance(list_item, (int, float)):
+            data_co2_eq_el_production[i][j] = round(list_item, 2)
+
+
+columns = ["Data", "Electricity Mix", "Anaerobic Digestion", "AD + Biogas upgrading + CHP + SOFC", "AD + Steam + CHP", "AD + Steam + Upgrading + CHP + SOFC"]
+df_co2_eq_el_production = pd.DataFrame(data_co2_eq_el_production, columns=columns)
+
+# create the table
+table_co2_eq_el_production = go.Figure(data=[go.Table(
+    header=dict(values=list(df_co2_eq_el_production.columns),
+                fill_color='paleturquoise',
+                align='left'),
+    cells=dict(values=[df_co2_eq_el_production[col] for col in df_co2_eq_el_production.columns],
+               fill_color='lavender',
+               align=['left'] + ['right'] * (len(df_co2_eq_el_production.columns) - 1)))
+])
+
+table_co2_eq_el_production.update_layout(title="GHG emissions per kWh electricity generated")
+list_figures.append(table_co2_eq_el_production)
+
+list_sens_analysis.append(df_co2_eq_el_production)
+
 
 
 
@@ -866,12 +1020,12 @@ table_env_plot.show()
 
 #round the relevant data points to 2 digits
 
-co2_n2o_ad = round(env.co2_n2o(n2o_tot_AD), 2)
-co2_methane_ad = round(env.co2_methane(ch4_released_AD), 2)
-co2_chp_AD = round(co2_chp_AD, 2)
+co2_n2o_ad = round(env.co2_n2o(n2o_tot_ad), 2)
+co2_methane_ad = round(env.co2_methane(ch4_released_ad), 2)
+co2_biogenic_ad = round(co2_biogenic_ad, 2)
 
 # create a list of values for the pie chart
-values_pie_co2_ad = [co2_n2o_ad, co2_methane_ad, co2_chp_AD, co2_transport_tot]
+values_pie_co2_ad = [co2_n2o_ad, co2_methane_ad, co2_biogenic_ad, co2_transport_tot]
 
 
 # create a list of labels for the pie chart
@@ -883,8 +1037,8 @@ ch4_sources_labels = ["Pre storage", "AD process", "Post storage", "Field applic
 
 # create a list of source data for n2o and ch4 sources
 
-data_n2o_sources = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
-data_ch4_sources = [round(co2_methane_pre_storage, 2), round(co2_methane_loss, 2), round(co2_methane_post_storage, 2), 0]
+data_n2o_sources_ad = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+data_ch4_sources_ad = [round(co2_methane_pre_storage, 2), round(co2_methane_loss, 2), round(co2_methane_post_storage, 2), 0]
 
 
 #create a hovertemplate for the pie chart
@@ -893,8 +1047,8 @@ hovertemplate_pie_co2_ad = (
     "Value: %{value} kg CO2 eq.<br>" +
     "%{percent}% of total<br><br>" +
     "<b>Sources:</b><br>" +
-    f"{'<br>'.join(n2o_sources_labels)}: %{data_n2o_sources}<br>" +
-    f"{'<br>'.join(ch4_sources_labels)}: %{data_ch4_sources}"
+    f"{'<br>'.join(n2o_sources_labels)}: %{data_n2o_sources_ad}<br>" +
+    f"{'<br>'.join(ch4_sources_labels)}: %{data_ch4_sources_ad}"
 )
 
 #create pie chart
@@ -908,42 +1062,270 @@ pie_co2_ad = go.Figure(
 
 # set title
 
-pie_co2_ad.update_layout(title_text="Contributors to GHG emissions of the Anaerobic Digestion in [kg CO2 eq.]")
+pie_co2_ad.update_layout(title="Contributors to GHG emissions of the Anaerobic Digestion in [kg CO2 eq.]")
 
 # plot
-pie_co2_ad.show()
+list_figures.append(pie_co2_ad)
 
-#plotly express sunburst
+
+#plotly express sunburst co2 untreated
 # create a list of labels for the pie chart
-labels_emissions_sb = ["N2O", "N2O", "N2O", "N2O", "CH4", "CH4", "CH4", "CH4", "CHP generator", "Transport"]
+labels_emissions_sb_untreated = ["N2O", "N2O", "N2O", "N2O", "CH4", "CH4", "CH4"]
 
 # create a list of sources for N2O and CH4
-labels_sources_sb = ["Pre storage", "AD process", "Post storage", "Field application", "Pre storage", "AD process", "Post storage", "Field application", None, None]
+labels_sources_sb_untreated = ["Pre storage", "AD process", "Post storage", "Field application", "Pre storage", "Post storage", "Field application"]
 
 
 # create a list of source data for n2o and ch4 sources
+data_n2o_sources_untreated = [round(co2_n2o_pre_storage_untreated, 2), 0, round(co2_n2o_post_storage_untreated, 2), round(co2_n2o_field_untreated, 2)]
+data_ch4_sources_untreated = [round(co2_methane_pre_storage_untreated, 2), round(co2_methane_post_storage_untreated, 2), co2_methane_field]
 
-data_process_ad = [co2_chp_AD, co2_transport_tot]
 
-data_sb = pd.DataFrame(dict(
-    emissions=labels_emissions_sb,
-    sources=labels_sources_sb,
-    values=data_n2o_sources + data_ch4_sources + data_process_ad
+data_sb_untreated = pd.DataFrame(dict(
+    emissions=labels_emissions_sb_untreated,
+    sources=labels_sources_sb_untreated,
+    values=data_n2o_sources_untreated + data_ch4_sources_untreated
 ))
 
 # create the sunburst chart
-sunburst_fig_2 = px.sunburst(data_sb, path=["emissions", "sources"], values="values")
+sb_co2_untreated = px.sunburst(data_sb_untreated, path=["emissions", "sources"], values="values")
 
 # set title
-sunburst_fig_2.update_layout(title_text="GHG Emissions from Anaerobic Digestion (in kg CO2 eq.)")
+sb_co2_untreated.update_layout(title="GHG Emissions from no treatment (in kg CO2 eq.)")
 
 # show the figure
-sunburst_fig_2.show()
+list_figures.append(sb_co2_untreated)
+
+
+
+
+#plotly express sunburst co2 AD
+# create a list of labels for the pie chart
+labels_emissions_sb_ad = ["N2O", "N2O", "N2O", "N2O", "CH4", "CH4", "CH4", "CH4", "Electricity", "Transport"]
+
+# create a list of sources for N2O and CH4
+labels_sources_sb_ad = ["Pre storage", "AD process", "Post storage", "Field application", "Pre storage", "AD process", "Post storage", "Field application", "Anaerobic Digestion", None]
+
+
+# create a list of source data for n2o and ch4 sources
+data_n2o_sources_ad = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+data_ch4_sources_ad = [round(co2_methane_pre_storage, 2), round(co2_methane_loss, 2), round(co2_methane_post_storage, 2), co2_methane_field]
+data_electricity_ad = [round(co2_eq_electricity_demand_ad, 2)]
+data_process_ad = [round(co2_transport_tot, 2)]
+
+data_sb_ad = pd.DataFrame(dict(
+    emissions=labels_emissions_sb_ad,
+    sources=labels_sources_sb_ad,
+    values=data_n2o_sources_ad + data_ch4_sources_ad + data_electricity_ad + data_process_ad
+))
+
+# create the sunburst chart
+sb_co2_ad = px.sunburst(data_sb_ad, path=["emissions", "sources"], values="values")
+
+# set title
+sb_co2_ad.update_layout(title="GHG Emissions from Anaerobic Digestion (in kg CO2 eq.)")
+
+# show the figure
+list_figures.append(sb_co2_ad)
+
+
+
+
+#plotly express sunburst co2 upgrading
+# create a list of labels for the pie chart
+labels_emissions_sb_upgrading = ["N2O", "N2O", "N2O", "N2O",
+                                 "CH4", "CH4", "CH4", "CH4", "CH4",
+                                 "Electricity", "Electricity",
+                                 "Transport"]
+
+# create a list of sources for N2O and CH4
+labels_sources_sb_upgrading = ["Pre storage", "AD process", "Post storage", "Field application",
+                               "Pre storage", "AD process", "Biogas upgrading", "Post storage", "Field application",
+                               "Anaerobic Digestion", "Biogas upgrading",
+                               None]
+
+
+# create a list of source data for n2o and ch4 sources
+data_n2o_sources_upgrading = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+data_ch4_sources_upgrading = [round(co2_methane_pre_storage, 2), round(co2_methane_loss, 2), round(co2_methane_loss_upgrading, 2), round(co2_methane_post_storage, 2), 0]
+data_electricity_upgrading = [round(co2_eq_electricity_demand_ad, 2), round(co2_eq_electricity_demand_bg_upgrade_upgrading, 2)]
+data_process_upgrading = [co2_transport_tot]
+
+data_sb_upgrading = pd.DataFrame(dict(
+    emissions=labels_emissions_sb_upgrading,
+    sources=labels_sources_sb_upgrading,
+    values=data_n2o_sources_upgrading + data_ch4_sources_upgrading + data_electricity_upgrading + data_process_upgrading
+))
+
+# create the sunburst chart
+sb_co2_upgrading = px.sunburst(data_sb_upgrading, path=["emissions", "sources"], values="values")
+
+# set title
+sb_co2_upgrading.update_layout(title="GHG Emissions from AD + Biogas Upgrading  (in kg CO2 eq.)")
+
+# show the figure
+list_figures.append(sb_co2_upgrading)
+
+
+
+
+
+#plotly express sunburst co2 steam treatment
+# create a list of labels for the pie chart
+labels_emissions_sb_steam = ["N2O", "N2O", "N2O", "N2O",
+                             "CH4", "CH4", "CH4", "CH4",
+                             "Electricity",
+                             "Transport"]
+
+# create a list of sources for N2O and CH4
+labels_sources_sb_steam = ["Pre storage", "AD process", "Post storage", "Field application",
+                           "Pre storage", "AD process", "Post storage", "Field application",
+                           "Anaerobic Digestion",
+                           None]
+
+
+# create a list of source data for n2o and ch4 sources
+data_n2o_sources_steam = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+data_ch4_sources_steam = [round(co2_methane_pre_storage, 2), round(co2_methane_loss_steam, 2), round(co2_methane_post_storage_steam, 2), 0]
+data_electricity_steam = [round(co2_eq_electricity_demand_steam, 2)]
+data_process_steam = [co2_transport_tot]
+
+data_sb_steam = pd.DataFrame(dict(
+    emissions=labels_emissions_sb_steam,
+    sources=labels_sources_sb_steam,
+    values=data_n2o_sources_steam + data_ch4_sources_steam + data_electricity_steam + data_process_steam
+))
+
+# create the sunburst chart
+sb_co2_steam = px.sunburst(data_sb_steam, path=["emissions", "sources"], values="values")
+
+# set title
+sb_co2_steam.update_layout(title="GHG Emissions from Steam treatment + AD  (in kg CO2 eq.)")
+
+# show the figure
+list_figures.append(sb_co2_steam)
+
+
+
+
+#plotly express sunburst co2 steam treatment + biogas upgrading
+# create a list of labels for the pie chart
+labels_emissions_sb_upgrading_steam = ["N2O", "N2O", "N2O", "N2O",
+                                       "CH4", "CH4", "CH4", "CH4", "CH4",
+                                       "Electricity", "Electricity",
+                                       "Transport"]
+
+# create a list of sources for N2O and CH4
+labels_sources_sb_upgrading_steam = ["Pre storage", "AD process", "Post storage", "Field application",
+                                     "Pre storage", "AD process", "Biogas upgrading", "Post storage", "Field application",
+                                     "Anaerobic Digestion", "Biogas upgrading",
+                                     None]
+
+
+
+# create a list of source data for n2o and ch4 sources
+data_n2o_sources_upgrading_steam = [round(co2_n2o_pre_storage, 2), 0, round(co2_n2o_post_storage, 2), round(co2_n2o_field, 2)]
+data_ch4_sources_upgrading_steam = [round(co2_methane_pre_storage_steam, 2), round(co2_methane_loss_ad_upgrading_steam, 2), round(co2_methane_loss_upgrading_steam, 2), round(co2_methane_post_storage_steam, 2), 0]
+data_electricity_upgrading_steam = [round(co2_eq_electricity_demand_ad_upgrading_steam, 2), round(co2_eq_electricity_demand_bg_upgrade_upgrading_steam, 2)]
+data_process_upgrading_steam = [co2_transport_tot]
+
+data_sb_upgrading_steam = pd.DataFrame(dict(
+    emissions=labels_emissions_sb_upgrading_steam,
+    sources=labels_sources_sb_upgrading_steam,
+    values=data_n2o_sources_upgrading_steam + data_ch4_sources_upgrading_steam + data_electricity_upgrading_steam + data_process_upgrading_steam
+))
+
+# create the sunburst chart
+sb_co2_upgrading_steam = px.sunburst(data_sb_upgrading_steam, path=["emissions", "sources"], values="values")
+
+# set title
+sb_co2_upgrading_steam.update_layout(title="GHG Emissions from Steam treatment + Biogas upgrading + AD  (in kg CO2 eq.)")
+
+# show the figure
+list_figures.append(sb_co2_upgrading_steam)
+
+
+
+
+
 
 ##########################################
 # Bar charts
 ###########################################
 list_types = ["Untreated", "Anaerobic Digestion", "AD + Biogas upgrading + CHP", "AD + Steam + CHP", "AD + Steam + Upgrading + CHP"]
+types_co2_eq_el_production = ["Electricity Mix", "Anaerobic Digestion", "AD + Biogas upgrading + CHP + SOFC", "AD + Steam + CHP", "AD + Steam + Upgrading + CHP + SOFC"]
+
+
+
+############################
+# bar chart CO2 equivalents per kWh electricity produced
+#############################
+
+
+list_co2_el_production = [env.co2_el_verbraucher, co2_eq_el_production_ad, co2_eq_el_production_upgrading, co2_eq_el_production_steam, co2_eq_el_production_upgrading_steam]
+for i, my_item in enumerate(list_co2_el_production):
+    list_co2_el_production[i] = round(my_item, 2)
+
+
+df_co2_el_production_bar = pd.DataFrame({
+    "Type": types_co2_eq_el_production,
+    "CO2-eq el": list_co2_el_production
+})
+
+
+
+co2_eq_el_production_bar = px.bar(df_co2_el_production_bar, x="Type", y="CO2-eq el", title="CO2 eq. GWP 100")
+co2_eq_el_production_bar.update_layout(yaxis_title="Global warming Impact [kg CO2-eq. / kWh]")
+
+
+
+list_figures.append(co2_eq_el_production_bar)
+
+
+list_sens_analysis.append(df_co2_el_production_bar)
+
+
+############################
+# bar chart CO2 equivalents, grouped with comparison negative CO2, that is CO2 emissions that are avoided
+#############################
+
+list_types_short = ["Anaerobic Digestion", "AD + Biogas upgrading + CHP", "AD + Steam + CHP", "AD + Steam + Upgrading + CHP"]
+
+
+labels_co2_avoided = ["Emissions", "Avoided", "Biogenic"]
+
+list_co2_emissions = [co2_eq_ad, co2_eq_upgrading, co2_eq_ad_steam, co2_eq_upgrading_steam]
+list_co2_avoided = [co2_avoided_tot_ad, co2_avoided_tot_upgrading, co2_avoided_tot_steam, co2_avoided_tot_upgrading_steam]
+list_co2_biogenic = [co2_biogenic_ad, co2_biogenic_upgrading, co2_biogenic_ad_steam, co2_biogenic_upgrading_steam]
+
+for i, my_item in enumerate(list_co2_avoided):
+    list_co2_avoided[i] = round(my_item, 2) * -1
+
+for i, my_item in enumerate(list_co2_biogenic):
+    list_co2_biogenic[i] = round(my_item, 2) * -1
+
+
+
+
+df_co2_avoided_bar = pd.DataFrame({
+    "Type": list_types_short,
+    "Emissions": list_co2_emissions,
+    "Avoided": list_co2_avoided,
+    "Biogenic": list_co2_biogenic
+})
+
+
+co2_eq_avoided_bar = px.bar(df_co2_avoided_bar, x="Type", y=labels_co2_avoided, barmode="group", title="GHG emissions vs emissions avoided vs potential biogenic CO2 capture")
+co2_eq_avoided_bar.update_layout(yaxis_title="GWP 100 [kg CO2-eq.]")
+
+
+
+list_figures.append(co2_eq_avoided_bar)
+
+
+list_sens_analysis.append(df_co2_avoided_bar)
+
+
 
 
 
@@ -975,10 +1357,13 @@ df_co2_bar = pd.DataFrame({
 print(df_co2_bar)
 
 co2_eq_bar = px.bar(df_co2_bar, x="Type", y=labels_co2_short, title="CO2 eq. GWP 100")
-co2_eq_bar.show()
+co2_eq_bar.update_layout(yaxis_title="GWP 100 [kg CO2-eq.]")
 
 
 
+list_figures.append(co2_eq_bar)
+
+list_sens_analysis.append(df_co2_bar)
 
 
 ######################################
@@ -1002,10 +1387,12 @@ df_nh3_bar = pd.DataFrame({
 
 
 nh3_emission_bar = px.bar(df_nh3_bar, x="Type", y=labels_nh3_bar, title="NH3 emissions")
-nh3_emission_bar.show()
+nh3_emission_bar.update_layout(yaxis_title="NH3 emissions [kg NH3]")
+
+list_figures.append(nh3_emission_bar)
 
 
-
+list_sens_analysis.append(df_nh3_bar)
 
 
 
@@ -1014,20 +1401,22 @@ nh3_emission_bar.show()
 ####################################
 
 
-list_electricity = [electricity_untreated, electricity_AD, electricity_net_upgrading, net_electricity_ad_steam, electricity_net_upgrading_steam]
-list_heat = [heat_untreated, heat_AD, heat_net_upgrading, heat_net_ad_steam, heat_net_upgrading_steam]
+list_electricity = [electricity_chp_AD, electricity_produced_upgrading, electricity_chp_ad_steam, electricity_produced_upgrading_steam]
+list_heat = [heat_net_ad, heat_net_upgrading, heat_net_ad_steam, heat_net_upgrading_steam]
 
 df_el_heat_bar = pd.DataFrame({
-    "Type": list_types,
+    "Type": list_types_short,
     "Electricity": list_electricity,
     "Heat": list_heat
 })
 
 energy_generation_bar = px.bar(df_el_heat_bar, x="Type", y=["Electricity", "Heat"], barmode="group", title="Heat and electricity generated")
-energy_generation_bar.show()
+energy_generation_bar.update_layout(yaxis_title="Energy generated [kWh]")
+
+list_figures.append(energy_generation_bar)
 
 
-
+list_sens_analysis.append(df_el_heat_bar)
 
 
 ##########################
@@ -1052,10 +1441,13 @@ df_ubp_bar = pd.DataFrame({
 list_ubp_factors = ["CO2 emission", "NH3 emission", "Eutrophication", "Energy"]
 
 ubp_bar = px.bar(df_ubp_bar, x="Type", y=list_ubp_factors, title="Schweizerische Umweltbelastungspunkte (UBP)")
-ubp_bar.show()
+ubp_bar.update_layout(yaxis_title="Umweltbelastungspunkte [UBP]")
 
 
+list_figures.append(ubp_bar)
 
+
+list_sens_analysis.append(df_ubp_bar)
 
 
 ####################################
@@ -1081,11 +1473,13 @@ df_n2o_bar = pd.DataFrame({
 labels_n2o_bar = ["Pre Storage", "Post Storage", "Field application"]
 
 n2o_emission_bar = px.bar(df_n2o_bar, x="Type", y=labels_n2o_bar, title="N2O emissions")
-n2o_emission_bar.show()
+n2o_emission_bar.update_layout(yaxis_title="N2O emissions [kg N2O]")
+
+list_figures.append(n2o_emission_bar)
 
 
 
-
+list_sens_analysis.append(df_n2o_bar)
 
 
 ###############################################
@@ -1096,7 +1490,7 @@ n2o_emission_bar.show()
 
 list_ch4_pre_storage = [0, ch4_pre_storage, ch4_pre_storage, ch4_pre_storage, ch4_pre_storage]
 list_ch4_post_storage = [ch4_untreated, ch4_post_storage, ch4_post_storage, ch4_post_storage_steam, ch4_post_storage_steam]
-list_ch4_ad = [0, methane_loss_mass, methane_loss_mass, methane_loss_mass_steam, methane_loss_mass_steam]
+list_ch4_ad = [0, methane_loss_mass_ad, methane_loss_mass_ad, methane_loss_mass_steam, methane_loss_mass_steam]
 list_ch4_upgrading = [0, 0, ch4_loss_upgrading_mass, 0, ch4_loss_upgrading_mass_steam]
 
 
@@ -1111,11 +1505,56 @@ df_ch4_bar = pd.DataFrame({
 labels_ch4_bar = ["Pre Storage", "Post Storage", "Digester", "Upgrading"]
 
 ch4_emission_bar = px.bar(df_ch4_bar, x="Type", y=labels_ch4_bar, title="CH4 emissions")
-ch4_emission_bar.show()
+ch4_emission_bar.update_layout(yaxis_title="Methane emissions [kg CH4]")
 
+list_figures.append(ch4_emission_bar)
+
+
+list_sens_analysis.append(df_ch4_bar)
 
 # Bar chart fossil Fuel replaced
 
 
 
-#
+# show figures
+
+path_download = os.path.join(os.getcwd(), 'downloads')
+
+for fig in list_figures:
+    #fig.show()
+
+    # Set the size of the figure
+    fig.update_layout(
+        width=1920,
+        height=1080
+    )
+
+    # Adjust the margins to make sure all elements are visible
+    fig.update_layout(
+        margin=dict(
+            l=50,
+            r=50,
+            b=100,
+            t=100,
+            pad=4
+        )
+    )
+
+    title = fig.layout.title.text
+    filename_png = os.path.join(path_download, f"{title}.png")
+    filename_html = os.path.join(path_download, f"{title}.html")
+    pio.write_image(fig, filename_png)
+    pio.write_html(fig, filename_html)
+
+
+# combine the sens analysis list and download as excel file
+
+filename_sens_analysis = os.path.join(path_download, "sens_analysis.xlsx")
+sens_anaylsis_df = pd.concat(list_sens_analysis)
+sens_anaylsis_df.to_excel(filename_sens_analysis)
+
+
+
+
+
+

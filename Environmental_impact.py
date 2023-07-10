@@ -61,8 +61,8 @@ fuel_consumption_tractor = 0.48     #[l/km] assume tractors use diesel
 co2_diesel = 2.620                   #[kg/l] in kg CO2 per liter of diesel
 
 
-def fuel_consumption_transport(manure_volume, distance): #input manure volume in m3 (assumption 1000kg/m3) and distance in km
-    num_trips = (manure_volume / 10) * 4          # assumption of using tractors with a slurry tank that can hold 10t of manure. Every manure transport includes 1 empty trip back! Due to a 1:1 dilution of the manure, twice as many trips are necessary
+def fuel_consumption_transport(manure_volume, distance):    #input manure volume in m3 (assumption 1000kg/m3) and distance in km
+    num_trips = (manure_volume / 10) * 4        # assumption of using tractors with a slurry tank that can hold 10t of manure. Every manure transport includes 1 empty trip back! Due to a 1:1 dilution of the manure, twice as many trips are necessary
     fuel_per_trip = distance * fuel_consumption_tractor     #[l] in liter diesel
     return num_trips * fuel_per_trip
 
@@ -128,9 +128,23 @@ def acidification_nh3(nh3_emission):
 ###########################################
 # GHG impact electricity mix Switzerland
 
-co2_el_produktion = 29.6     # gCO2/kWh, Produktionsstrommix
-co2_el_lieferant = 54.7     # g CO2 / kWh, Lieferantenstrommix
-co2_el_verbraucher = 128    # g CO2 / kWh, Verbraucherstrommix
+co2_el_produktion = 0.0296     # kg CO2/kWh, Produktionsstrommix
+co2_el_lieferant = 0.0547     # kg CO2 / kWh, Lieferantenstrommix
+co2_el_verbraucher = 0.128    # kg CO2 / kWh, Verbraucherstrommix
+
 
 def co2_swiss_el_mix(el_generated):
-    return co2_el_lieferant * el_generated         #input in kWh, output in g CO2
+    return co2_el_verbraucher * el_generated         #input in kWh, output in kg CO2
+
+
+###########################
+# CO2 emissions Heating oil
+# source: https://www.forestresearch.gov.uk/tools-and-resources/fthr/biomass-energy-resources/reference-biomass/facts-figures/carbon-emissions-of-different-fuels/
+
+co2_eq_oil_joule = 0.072      # kg CO2 / MJ oil
+co2_eq_oil_watt = 0.260         #kg CO2 / kWh
+
+
+def co2_oil_kwh(kwh):
+    return co2_eq_oil_watt * kwh    # output in kg CO2
+
